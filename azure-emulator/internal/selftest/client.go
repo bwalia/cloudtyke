@@ -42,12 +42,20 @@ const (
 	RoleReader      = "acdd72a7-3385-48ef-bd42-f606fba81ae7"
 )
 
-// Call is one HTTP exchange made by a check, kept for the report.
+// Call is one HTTP exchange made by a check, kept for the report and tour.
 type Call struct {
 	Method string `json:"method"`
 	URL    string `json:"url"`
 	Status int    `json:"status"`
 	Error  string `json:"error,omitempty"` // error.code from the body, if any
+	// Step is the plain-English purpose of the call ("Reader cannot write")
+	// and Expect what the check required ("403 AuthorizationFailed").
+	Step   string `json:"step,omitempty"`
+	Expect string `json:"expect,omitempty"`
+	// Verified lists further assertions made on this response.
+	Verified []string `json:"verified,omitempty"`
+	Request  string   `json:"request,omitempty"`
+	Response string   `json:"response,omitempty"`
 }
 
 // Resp is a decoded response.
@@ -56,6 +64,7 @@ type Resp struct {
 	Header http.Header
 	Body   map[string]any
 	Raw    []byte
+	idx    int // index into C.calls
 }
 
 // Err returns error.code (ARM / Graph) or error (OAuth).
@@ -113,16 +122,40 @@ type C struct {
 // Fatalf fails the check.
 func (c *C) Fatalf(format string, args ...any) { panic(failure(fmt.Sprintf(format, args...))) }
 
-// Expect fails the check unless ok.
+// Expect fails the check unless ok. Passing assertions are recorded on the
+// most recent call, labelled with the message up to its "got ..." part.
 func (c *C) Expect(ok bool, format string, args ...any) {
 	if !ok {
 		c.Fatalf(format, args...)
 	}
+	if n := len(c.calls); n > 0 {
+		if l := assertLabel(format); l != "" {
+			c.calls[n-1].Verified = append(c.calls[n-1].Verified, l)
+		}
+	}
+}
+
+func assertLabel(format string) string {
+	cut := len(format)
+	for _, sep := range []string{", got", ", saw", ": got", ":", " %"} {
+		if i := strings.Index(format, sep); i >= 0 && i < cut {
+			cut = i
+		}
+	}
+	l := strings.TrimSpace(format[:cut])
+	if strings.HasPrefix(l, "unexpected") || l == "" {
+		return ""
+	}
+	return l
 }
 
 // Status fails unless the response has the given status (and, if code is
 // non-empty, the given error code).
 func (c *C) Status(r Resp, want int, code, what string) Resp {
+	if r.idx < len(c.calls) {
+		c.calls[r.idx].Step = what
+		c.calls[r.idx].Expect = strings.TrimSpace(fmt.Sprintf("%d %s", want, code))
+	}
 	if r.Code != want || (code != "" && r.Err() != code) {
 		c.Fatalf("%s: want %d %s, got %d %s %s", what, want, code, r.Code, r.Err(), short(r.Raw))
 	}
@@ -135,6 +168,25 @@ func short(b []byte) string {
 		s = s[:300] + "…"
 	}
 	return s
+}
+
+// StatusIn is Status for checks that accept any of several status codes.
+func (c *C) StatusIn(r Resp, what string, want ...int) Resp {
+	var exp []string
+	for _, w := range want {
+		exp = append(exp, fmt.Sprint(w))
+	}
+	if r.idx < len(c.calls) {
+		c.calls[r.idx].Step = what
+		c.calls[r.idx].Expect = strings.Join(exp, " or ")
+	}
+	for _, w := range want {
+		if r.Code == w {
+			return r
+		}
+	}
+	c.Fatalf("%s: want %s, got %d %s %s", what, strings.Join(exp, " or "), r.Code, r.Err(), short(r.Raw))
+	return r
 }
 
 // Name returns a unique name with the given prefix.
@@ -160,38 +212,96 @@ func (c *C) Graph(path string) string { return c.URL("graph", "/v1.0"+path) }
 // Do performs a request against the emulator handler in-process.
 func (c *C) Do(method, u, tok string, body any) Resp {
 	var rdr io.Reader
+	var reqText string
 	if body != nil {
 		b, _ := json.Marshal(body)
 		rdr = bytes.NewReader(b)
+		reqText = pretty(b)
 	}
 	req := httptest.NewRequest(method, u, rdr)
 	req.Header.Set("Content-Type", "application/json")
 	if tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
-	return c.serve(req)
+	return c.serve(req, reqText)
 }
 
 // Form posts an x-www-form-urlencoded body.
 func (c *C) Form(u string, form url.Values) Resp {
 	req := httptest.NewRequest(http.MethodPost, u, strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	return c.serve(req)
+	var shown []string
+	for _, k := range []string{"grant_type", "client_id", "client_secret", "client_assertion_type", "client_assertion", "scope", "resource"} {
+		if v := form.Get(k); v != "" {
+			if k == "client_secret" || k == "client_assertion" {
+				v = "***"
+			}
+			shown = append(shown, k+"="+v)
+		}
+	}
+	return c.serve(req, strings.Join(shown, "\n"))
 }
 
-func (c *C) serve(req *http.Request) Resp {
+func (c *C) serve(req *http.Request, reqText string) Resp {
 	rec := httptest.NewRecorder()
 	c.h.ServeHTTP(rec, req)
 	res := rec.Result()
 	raw, _ := io.ReadAll(res.Body)
-	r := Resp{Code: res.StatusCode, Header: res.Header, Raw: raw}
+	r := Resp{Code: res.StatusCode, Header: res.Header, Raw: raw, idx: len(c.calls)}
 	_ = json.Unmarshal(raw, &r.Body)
 	path := req.URL.Path
 	if req.URL.RawQuery != "" {
 		path += "?" + req.URL.RawQuery
 	}
-	c.calls = append(c.calls, Call{Method: req.Method, URL: req.Host + path, Status: r.Code, Error: r.Err()})
+	resp := pretty(raw)
+	if loc := res.Header.Get("Location"); loc != "" {
+		resp = strings.TrimSpace("Location: " + loc + "\n" + resp)
+	}
+	c.calls = append(c.calls, Call{Method: req.Method, URL: req.Host + path, Status: r.Code, Error: r.Err(), Request: reqText, Response: resp})
 	return r
+}
+
+// pretty indents JSON, shortens long strings (tokens, keys) and caps the size
+// so reports stay readable.
+func pretty(raw []byte) string {
+	var v any
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return ""
+	}
+	if json.Unmarshal(raw, &v) != nil {
+		return capLen(string(raw), 2000)
+	}
+	v = shorten(v)
+	b, _ := json.MarshalIndent(v, "", "  ")
+	return capLen(string(b), 4000)
+}
+
+func shorten(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		for k, e := range x {
+			x[k] = shorten(e)
+		}
+	case []any:
+		for i, e := range x {
+			x[i] = shorten(e)
+		}
+		if len(x) > 8 {
+			return append(x[:8], fmt.Sprintf("… %d more", len(x)-8))
+		}
+	case string:
+		if len(x) > 120 {
+			return x[:60] + "…" + x[len(x)-20:]
+		}
+	}
+	return v
+}
+
+func capLen(s string, n int) string {
+	if len(s) > n {
+		return s[:n] + "\n… (truncated)"
+	}
+	return s
 }
 
 // Token gets a client_credentials token for resource ("management" or "graph").
@@ -207,7 +317,12 @@ func (c *C) Token(clientID, secret, sub string) string {
 	r := c.Form(c.URL("login", "/"+Tenant+"/oauth2/v2.0/token"), url.Values{
 		"client_id": {clientID}, "client_secret": {secret}, "grant_type": {"client_credentials"}, "scope": {resource + "/.default"},
 	})
-	c.Status(r, 200, "", "token for "+clientID)
+	who := map[string]string{BootAppID: "cloudtyke-bootstrap (Owner, Global Admin)", ReaderAppID: "cloudtyke-reader (Reader)"}[clientID]
+	if who == "" {
+		who = "app " + clientID
+	}
+	api := map[string]string{"management": "ARM", "graph": "Microsoft Graph"}[sub]
+	c.Status(r, 200, "", "get a token for "+api+" as "+who)
 	t, _ := r.Body["access_token"].(string)
 	c.toks[key] = t
 	return t
@@ -241,6 +356,7 @@ func (c *C) WaitAsync(loc, tok string) Resp {
 		if r.Code != 202 || time.Now().After(deadline) {
 			return r
 		}
+		c.calls[r.idx].Step = "poll async operation (still running)"
 		time.Sleep(25 * time.Millisecond)
 	}
 }
