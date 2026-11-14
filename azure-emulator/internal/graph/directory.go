@@ -81,7 +81,7 @@ func (q *req) directoryObjects(rest []string) {
 				if len(types) > 0 && !containsFold(types, strings.TrimSuffix(c, "s")) && !containsFold(types, c) {
 					continue
 				}
-				items = append(items, o)
+				items = append(items, withType(c, o))
 			}
 		}
 		q.list("directoryObjects", items)
@@ -99,7 +99,7 @@ func (q *req) directoryObjects(rest []string) {
 		if !q.require(false, c) {
 			return
 		}
-		q.entity(200, "directoryObjects", o)
+		q.entity(200, "directoryObjects", withType(c, o))
 		return
 	}
 	q.objectRoute(c, o, rest[1:])

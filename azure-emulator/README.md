@@ -86,12 +86,33 @@ seed file (`CLOUDTYKE_SEED_FILE`, same schema as [internal/seed/default.yaml](in
 
 `health`, `version`, `ca.pem`, `env`, `metadata`, `coverage[?format=markdown]`, `requests?limit=N`,
 `state` (GET export / PUT import), `snapshots`, `snapshots/{name}` (POST save, DELETE), `snapshots/{name}/restore`,
-`reset`, `seed` and `chaos` (GET / PUT / DELETE).
+`reset`, `seed`, `chaos` (GET / PUT / DELETE) and `selftest[?format=json&service=FILTER]`.
+
+## Testing every service
+
+Each row of the [coverage matrix](docs/coverage.md) has one self-test check that drives the service over its real HTTP API:
+the happy path, the error codes Terraform and the SDKs depend on, and RBAC / Graph permission enforcement.
+
+| Command | What it does | Time |
+|---|---|---|
+| `make test-services` | every service check as a Go subtest (in-process, no Docker) | ~1 s |
+| `make test-all SKIP_E2E=1` | unit, integration and service tests plus a report in `reports/` | ~15 s |
+| `make test-all` | the same plus the Terraform lifecycle with OpenTofu and Terraform | ~12 min |
+| `make selftest` / `bin/tyke azure selftest [FILTER]` | runs the checks inside the running emulator and prints ✅/❌ per service | <1 s |
+
+`make test-all` writes `reports/index.html` (open it in a browser), `reports/junit.xml` and `reports/summary.md`, prints a
+per-service table and exits non-zero if anything failed.
+
+**Live page for interviews and lab demos:** open <https://localhost/_cloudtyke/selftest> while the emulator is running.
+Every load runs the suite against a fresh in-memory emulator, so it never changes your state. Expand a service to see each
+HTTP call it made. Add `?service=graph` to filter, or `?format=json` for scripts; the page returns HTTP 417 when
+anything fails, so `curl -f` works in scripts.
 
 ## Development
 
 ```bash
 make lint test-race       # unit + in-process HTTPS integration tests
+make test-all             # everything above + Terraform e2e, with an HTML report in reports/
 make coverage             # regenerate docs/coverage.md
 make tf-e2e               # every example: init/validate/apply/plan(no drift)/destroy with OpenTofu
 make tf-e2e-terraform     # the same with Terraform

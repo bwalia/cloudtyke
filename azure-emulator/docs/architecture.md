@@ -117,5 +117,8 @@ store, and `/_cloudtyke/snapshots/{name}` saves or restores named snapshots ("ti
 2. Use `arm.Generic(arm.GenericOptions{…})` and add `Prepare` (defaults and validation), `AfterWrite`, `OnDelete`,
    `Actions` and `Present` hooks only where Azure behaves specially.
 3. Add unit tests and a Terraform example that applies it, then run `make coverage` to regenerate `docs/coverage.md`.
+4. Add a check for the new type to `internal/selftest/checks.go`, keyed by its full type (for example
+   `Microsoft.Network/virtualNetworks`). `make test-services` fails while any coverage-matrix row has no check, so a new
+   service can't ship untested.
 
 See [decisions/](decisions/) for the ADRs behind these choices.

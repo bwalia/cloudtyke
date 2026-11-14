@@ -411,7 +411,7 @@ func (q *req) objectRoute(coll string, o map[string]any, rest []string) {
 		var items []map[string]any
 		for _, gid := range groups {
 			if g, ok := q.s.Dir.Get(q.tid, entra.Groups, gid); ok {
-				items = append(items, g)
+				items = append(items, withType(entra.Groups, g))
 			}
 		}
 		q.list("directoryObjects", items)
@@ -470,7 +470,7 @@ func (q *req) objectRoute(coll string, o map[string]any, rest []string) {
 		var items []map[string]any
 		for _, u := range q.s.Dir.List(q.tid, entra.Users) {
 			if strings.EqualFold(str(u["_manager"]), id) {
-				items = append(items, u)
+				items = append(items, withType(entra.Users, u))
 			}
 		}
 		q.list("directoryObjects", items)
@@ -749,8 +749,8 @@ func (q *req) relation(coll string, o map[string]any, field, name string, rest [
 		}
 		var items []map[string]any
 		for _, id := range ids {
-			if _, obj, ok := q.s.Dir.FindObject(q.tid, id); ok {
-				items = append(items, obj)
+			if c, obj, ok := q.s.Dir.FindObject(q.tid, id); ok {
+				items = append(items, withType(c, obj))
 			}
 		}
 		q.list("directoryObjects", items)
@@ -810,7 +810,7 @@ func (q *req) transitiveMembers(groupID string) []map[string]any {
 			}
 			seen[strings.ToLower(m)] = true
 			if c, obj, ok := q.s.Dir.FindObject(q.tid, m); ok {
-				out = append(out, obj)
+				out = append(out, withType(c, obj))
 				if c == entra.Groups {
 					walk(m)
 				}
@@ -838,7 +838,7 @@ func (q *req) manager(u map[string]any, rest []string) {
 			q.json(200, map[string]any{"@odata.id": q.base() + "/directoryObjects/" + mid})
 			return
 		}
-		q.entity(200, c, m)
+		q.entity(200, c, withType(c, m))
 	case q.r.Method == http.MethodPut && len(rest) == 1 && rest[0] == "$ref":
 		if !q.require(true, entra.Users) {
 			return
@@ -1118,4 +1118,21 @@ func containsFold(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// withType returns a copy of o carrying its @odata.type. Graph includes the
+// type on every object in a polymorphic (directoryObject) response; clients
+// such as the azuread provider rely on it to tell users, groups and service
+// principals apart.
+func withType(coll string, o map[string]any) map[string]any {
+	t := entra.ODataType(coll)
+	if t == "" {
+		return o
+	}
+	out := make(map[string]any, len(o)+1)
+	for k, v := range o {
+		out[k] = v
+	}
+	out["@odata.type"] = t
+	return out
 }
