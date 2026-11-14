@@ -1,0 +1,18 @@
+# Resolves every name under the emulator domain (management., login., graph.,
+# <vault>.vault., <account>.blob.storage., ...) to the emulator container.
+{$CLOUDTYKE_DOMAIN}:53 {
+    template IN A {
+        answer "{{ .Name }} 60 IN A {$CLOUDTYKE_EMULATOR_IP}"
+    }
+    template IN AAAA {
+        rcode NOERROR
+    }
+    log
+    errors
+}
+
+.:53 {
+    forward . 127.0.0.11
+    cache 30
+    errors
+}

@@ -1,5 +1,9 @@
 # Bootstrap Dashboard with DataTables
 
+> **New: [CloudTyke Azure emulator](azure-emulator/README.md)**, a local emulator for Azure APIs (ARM, Entra ID,
+> a Microsoft Graph subset) for Terraform/OpenTofu learning and platform-engineering interviews.
+> Not affiliated with or endorsed by Microsoft.
+
 A simple, responsive dashboard application built with Bootstrap 5 and DataTables that displays user data from the OpsAPI.
 
 ## Features

@@ -1,0 +1,56 @@
+name: azure-emulator
+
+on:
+  push:
+    branches: [main]
+    paths: ["azure-emulator/**", ".github/workflows/azure-emulator.yml"]
+  pull_request:
+    paths: ["azure-emulator/**", ".github/workflows/azure-emulator.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: azure-emulator
+
+jobs:
+  unit:
+    name: lint, unit + integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: azure-emulator/go.mod
+          cache-dependency-path: azure-emulator/go.sum
+      - run: make lint
+      - run: make test-race
+      - run: make coverage-check
+
+  terraform-e2e:
+    name: e2e (${{ matrix.tool }})
+    runs-on: ubuntu-latest
+    needs: unit
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [tofu, terraform]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start a fresh emulator
+        run: |
+          CLOUDTYKE_EPHEMERAL=true docker compose up -d --build --wait
+          docker compose --profile tools build toolbox
+      - name: init / validate / apply / plan (no drift) / destroy
+        run: |
+          if [ "${{ matrix.tool }}" = "tofu" ]; then make tf-e2e; else make tf-e2e-terraform; fi
+      - name: Emulator diagnostics
+        if: failure()
+        run: |
+          docker compose logs emulator | tail -200
+          docker compose run --rm -T toolbox curl -s "https://management.cloudtyke.local/_cloudtyke/requests?limit=200" || true
+      - name: Tear down
+        if: always()
+        run: docker compose --profile tools down -v

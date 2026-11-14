@@ -1,0 +1,64 @@
+# CloudTyke default seed. Deterministic IDs so docs, labs and CI can rely on them.
+# Override with CLOUDTYKE_SEED_FILE=/path/seed.yaml (same schema).
+#
+# These credentials are LOCAL DEVELOPMENT SECRETS for the emulator only.
+tenants:
+  - id: 7c10d7e4-0000-4000-8000-000000000001
+    displayName: CloudTyke Dev
+    defaultDomain: cloudtyke.local
+    domains: [cloudtyke.local]
+    managementGroups:
+      # the tenant root group (name == tenant id) is created automatically
+      - name: ct-platform
+        displayName: Platform
+        parent: 7c10d7e4-0000-4000-8000-000000000001
+      - name: ct-landingzones
+        displayName: Landing Zones
+        parent: 7c10d7e4-0000-4000-8000-000000000001
+      - name: ct-sandbox
+        displayName: Sandbox
+        parent: 7c10d7e4-0000-4000-8000-000000000001
+    subscriptions:
+      - id: 5b5c0000-0000-4000-8000-000000000001
+        displayName: sub-connectivity
+        managementGroup: ct-platform
+      - id: 5b5c0000-0000-4000-8000-000000000002
+        displayName: sub-management
+        managementGroup: ct-platform
+      - id: 5b5c0000-0000-4000-8000-000000000003
+        displayName: sub-sandbox
+        managementGroup: ct-sandbox
+    servicePrincipals:
+      - displayName: cloudtyke-bootstrap
+        appId: a99c0000-0000-4000-8000-000000000001
+        applicationObjectId: 0a100000-0000-4000-8000-000000000001
+        objectId: 0b100000-0000-4000-8000-000000000001
+        clientSecret: cloudtyke-bootstrap-secret
+        graphPermissions:
+          - Directory.ReadWrite.All
+          - Application.ReadWrite.All
+          - AppRoleAssignment.ReadWrite.All
+          - User.ReadWrite.All
+          - Group.ReadWrite.All
+          - RoleManagement.ReadWrite.Directory
+        directoryRoles: [Global Administrator]
+        roleAssignments:
+          - role: Owner
+            scope: /
+      - displayName: cloudtyke-reader
+        appId: a99c0000-0000-4000-8000-000000000002
+        applicationObjectId: 0a100000-0000-4000-8000-000000000002
+        objectId: 0b100000-0000-4000-8000-000000000002
+        clientSecret: cloudtyke-reader-secret
+        graphPermissions: [Directory.Read.All]
+        roleAssignments:
+          - role: Reader
+            scope: /subscriptions/5b5c0000-0000-4000-8000-000000000003
+    users:
+      - displayName: Ada Platform
+        userPrincipalName: ada@cloudtyke.local
+        objectId: 0c100000-0000-4000-8000-000000000001
+        password: "CloudTyke-Dev-1!"
+        roleAssignments:
+          - role: Contributor
+            scope: /subscriptions/5b5c0000-0000-4000-8000-000000000003

@@ -1,0 +1,80 @@
+# CloudTyke Azure emulator.
+#   docker compose up -d            # emulator + DNS sidecar
+#   docker compose run --rm toolbox  # shell with tofu/terraform trusting the CA
+name: cloudtyke-azure
+
+x-env: &arm-env
+  ARM_METADATA_HOSTNAME: management.${CLOUDTYKE_DOMAIN:-cloudtyke.local}
+  ARM_TENANT_ID: 7c10d7e4-0000-4000-8000-000000000001
+  ARM_SUBSCRIPTION_ID: 5b5c0000-0000-4000-8000-000000000003
+  ARM_CLIENT_ID: a99c0000-0000-4000-8000-000000000001
+  ARM_CLIENT_SECRET: cloudtyke-bootstrap-secret
+  AZURE_AUTHORITY_HOST: https://login.${CLOUDTYKE_DOMAIN:-cloudtyke.local}
+
+services:
+  emulator:
+    build: .
+    image: ${CLOUDTYKE_IMAGE:-cloudtyke/azure-emulator:dev}
+    restart: unless-stopped
+    environment:
+      CLOUDTYKE_DOMAIN: ${CLOUDTYKE_DOMAIN:-cloudtyke.local}
+      CLOUDTYKE_EPHEMERAL: ${CLOUDTYKE_EPHEMERAL:-false}
+      CLOUDTYKE_ASYNC_DELAY: ${CLOUDTYKE_ASYNC_DELAY:-0s}
+      CLOUDTYKE_STRICT_API_VERSIONS: ${CLOUDTYKE_STRICT_API_VERSIONS:-false}
+      CLOUDTYKE_ADMIN_TOKEN: ${CLOUDTYKE_ADMIN_TOKEN:-}
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"   # bind :443 as non-root
+    ports:
+      # bound to localhost only - never expose the emulator to other hosts
+      - "127.0.0.1:${CLOUDTYKE_HTTPS_PORT:-443}:443"
+    volumes:
+      - cloudtyke-data:/data
+    networks:
+      cloudtyke:
+        ipv4_address: ${CLOUDTYKE_EMULATOR_IP:-10.253.53.10}
+        aliases:
+          - management.${CLOUDTYKE_DOMAIN:-cloudtyke.local}
+          - login.${CLOUDTYKE_DOMAIN:-cloudtyke.local}
+          - graph.${CLOUDTYKE_DOMAIN:-cloudtyke.local}
+
+  dns:
+    image: coredns/coredns:1.12.1
+    restart: unless-stopped
+    command: ["-conf", "/etc/coredns/Corefile"]
+    environment:
+      CLOUDTYKE_DOMAIN: ${CLOUDTYKE_DOMAIN:-cloudtyke.local}
+      CLOUDTYKE_EMULATOR_IP: ${CLOUDTYKE_EMULATOR_IP:-10.253.53.10}
+    volumes:
+      - ./deploy/coredns/Corefile:/etc/coredns/Corefile:ro
+    networks:
+      cloudtyke:
+        ipv4_address: ${CLOUDTYKE_DNS_IP:-10.253.53.53}
+
+  toolbox:
+    profiles: ["tools"]
+    build: ./deploy/toolbox
+    image: cloudtyke/toolbox:dev
+    depends_on:
+      emulator:
+        condition: service_healthy
+    dns: ["${CLOUDTYKE_DNS_IP:-10.253.53.53}"]
+    environment:
+      <<: *arm-env
+      TF_PLUGIN_CACHE_DIR: /plugin-cache
+      TF_IN_AUTOMATION: "1"
+    working_dir: /work
+    volumes:
+      - cloudtyke-data:/cloudtyke-data:ro
+      - ./:/work
+      - plugin-cache:/plugin-cache
+    networks: [cloudtyke]
+
+networks:
+  cloudtyke:
+    ipam:
+      config:
+        - subnet: ${CLOUDTYKE_SUBNET:-10.253.53.0/24}
+
+volumes:
+  cloudtyke-data:
+  plugin-cache:
