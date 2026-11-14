@@ -26,8 +26,18 @@ jobs:
           go-version-file: azure-emulator/go.mod
           cache-dependency-path: azure-emulator/go.sum
       - run: make lint
-      - run: make test-race
       - run: make coverage-check
+      - name: Unit, integration and per-service tests (race detector)
+        run: make test-all SKIP_E2E=1 GO_TEST_FLAGS="-race -count=1"
+      - name: Publish summary
+        if: always()
+        run: test -f reports/summary.md && cat reports/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: azure-emulator/reports/
 
   terraform-e2e:
     name: e2e (${{ matrix.tool }})
@@ -39,13 +49,32 @@ jobs:
         tool: [tofu, terraform]
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: azure-emulator/go.mod
+          cache-dependency-path: azure-emulator/go.sum
       - name: Start a fresh emulator
         run: |
           CLOUDTYKE_EPHEMERAL=true docker compose up -d --build --wait
           docker compose --profile tools build toolbox
+      - name: Live self-test endpoint in the container
+        run: docker compose --profile tools run --rm -T toolbox curl -fsS -o /dev/null -w "selftest %{http_code}\n" "https://management.cloudtyke.local/_cloudtyke/selftest?format=json"
       - name: init / validate / apply / plan (no drift) / destroy
         run: |
-          if [ "${{ matrix.tool }}" = "tofu" ]; then make tf-e2e; else make tf-e2e-terraform; fi
+          mkdir -p reports
+          set -o pipefail
+          if [ "${{ matrix.tool }}" = "tofu" ]; then make tf-e2e; else make tf-e2e-terraform; fi 2>&1 | tee reports/e2e.log
+      - name: Report
+        if: always()
+        run: |
+          go run ./test/report -in "" -e2e "${{ matrix.tool }}=reports/e2e.log" -out reports || true
+          test -f reports/summary.md && cat reports/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Upload e2e report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report-${{ matrix.tool }}
+          path: azure-emulator/reports/
       - name: Emulator diagnostics
         if: failure()
         run: |

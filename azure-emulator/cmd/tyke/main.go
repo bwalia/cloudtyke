@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,6 +67,12 @@ func main() {
 		n := fs.Int("n", 20, "number of requests")
 		_ = fs.Parse(args)
 		err = requests(*n)
+	case "selftest":
+		filter := ""
+		if len(args) > 0 {
+			filter = args[0]
+		}
+		err = selftest(filter)
 	case "snapshot":
 		err = snapshot(args)
 	case "chaos":
@@ -91,6 +98,7 @@ func usage() {
   trust [--install]                write ./certs/ca.pem and optionally trust it
   hosts                            print /etc/hosts entries
   requests [-n N]                  show recent API calls (what Terraform actually called)
+  selftest [FILTER]                test every emulated service (live page: /_cloudtyke/selftest)
   snapshot save|restore|list NAME  save / restore emulator state
   chaos get|set|clear              fault injection (--throttle --errors --latency --async-delay)
 
@@ -334,4 +342,43 @@ func chaos(args []string) error {
 		return fmt.Errorf("drift injection arrives with the labs in phase 6")
 	}
 	return fmt.Errorf("unknown chaos command %q", args[0])
+}
+
+func selftest(filter string) error {
+	fmt.Println("Running the self-test against a fresh in-memory emulator (your state is not touched)...")
+	out, reqErr := adminReq(http.MethodGet, "/selftest?format=json&service="+url.QueryEscape(filter), nil)
+	var rep struct {
+		Passed, Failed int
+		DurationMs     int64
+		Results        []struct {
+			Section, Service, Title, Status, Error string
+			Calls                                  []struct{ Method, URL string }
+		}
+	}
+	if json.Unmarshal(out, &rep) != nil || len(rep.Results) == 0 {
+		if reqErr != nil {
+			return reqErr
+		}
+		return fmt.Errorf("unexpected self-test response: %s", out)
+	}
+	section := ""
+	for _, r := range rep.Results {
+		if r.Section != section {
+			section = r.Section
+			fmt.Printf("\n  %s\n", section)
+		}
+		mark := "✅"
+		if r.Status != "pass" {
+			mark = "❌"
+		}
+		fmt.Printf("    %s %-42s %3d calls  %s\n", mark, r.Service, len(r.Calls), r.Title)
+		if r.Error != "" {
+			fmt.Printf("       %s\n", r.Error)
+		}
+	}
+	fmt.Printf("\n%d passed, %d failed in %dms. Full report: %s/_cloudtyke/selftest\n", rep.Passed, rep.Failed, rep.DurationMs, baseURL())
+	if rep.Failed > 0 {
+		return fmt.Errorf("self-test failed")
+	}
+	return nil
 }

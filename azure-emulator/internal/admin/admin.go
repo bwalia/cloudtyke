@@ -36,6 +36,8 @@ type Server struct {
 	Seed     seed.File
 	// WriteMu is the ARM write lock, held while state is swapped.
 	WriteMu *sync.Mutex
+	// SelfTest serves /_cloudtyke/selftest (wired by internal/app).
+	SelfTest http.Handler
 
 	memSnaps sync.Map
 }
@@ -130,6 +132,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, 200, map[string]any{"status": "seeded"})
+	case p == "/selftest" && s.SelfTest != nil:
+		s.SelfTest.ServeHTTP(w, r)
 	case p == "/snapshots":
 		writeJSON(w, 200, map[string]any{"value": s.listSnapshots()})
 	case strings.HasPrefix(p, "/snapshots/"):
@@ -265,6 +269,46 @@ func coverageJSON(reg *arm.Registry) map[string]any {
 	return map[string]any{"value": items}
 }
 
+// Service is one row of the coverage matrix. ID is the stable key used by
+// the self-test suite (internal/selftest) to find the checks for the row.
+type Service struct {
+	Section string // "ARM", "Token", "Graph"
+	ID      string
+	Display string // first column, already Markdown-formatted
+	Notes   string
+}
+
+// TokenServices are the Entra ID token service endpoints.
+var TokenServices = []Service{
+	{"Token", "token", "`/{tenant}/oauth2/v2.0/token`, `/{tenant}/oauth2/token`", "client_credentials with client secret or federated client assertion (workload identity); RS256 JWTs with tid/oid/appid/roles/groups"},
+	{"Token", "oidc-discovery", "`/{tenant}/v2.0/.well-known/openid-configuration`, `/{tenant}/discovery/v2.0/keys`", "OIDC discovery + JWKS"},
+	{"Token", "instance-discovery", "`/common/discovery/instance`", "MSAL instance discovery"},
+}
+
+// GraphServices are the emulated Microsoft Graph resources.
+var GraphServices = []Service{
+	{"Graph", "users", "users", "list/get/create/update/delete (soft delete), lookup by UPN, memberOf/transitiveMemberOf, password complexity, verified-domain check"},
+	{"Graph", "groups", "groups", "list/get/create/update/delete, owners & members (`$ref`, `@odata.bind`), transitiveMembers"},
+	{"Graph", "applications", "applications", "list/get/create/update/delete, `applications(appId='…')`, owners, addPassword/removePassword, federatedIdentityCredentials"},
+	{"Graph", "servicePrincipals", "servicePrincipals", "list/get/create/update/delete, `servicePrincipals(appId='…')`, owners, addPassword, appRoleAssignedTo, appRoleAssignments"},
+	{"Graph", "oauth2PermissionGrants", "oauth2PermissionGrants", "list/get/create/update/delete"},
+	{"Graph", "directoryRoles", "directoryRoles, directoryRoleTemplates", "list, activate, members"},
+	{"Graph", "directoryObjects", "directoryObjects", "get, getByIds"},
+	{"Graph", "deletedItems", "directory/deletedItems", "list by type, get, restore, permanent delete"},
+	{"Graph", "organization", "organization, domains", "read"},
+}
+
+// Services lists every coverage-matrix row: ARM types from the registry,
+// then the token service, then Graph.
+func Services(reg *arm.Registry) []Service {
+	var out []Service
+	for _, t := range reg.All() {
+		out = append(out, Service{Section: "ARM", ID: t.FullType(), Display: "`" + t.FullType() + "`", Notes: t.Notes})
+	}
+	out = append(out, TokenServices...)
+	return append(out, GraphServices...)
+}
+
 // CoverageMarkdown renders docs/coverage.md from the registry.
 func CoverageMarkdown(reg *arm.Registry) string {
 	var b strings.Builder
@@ -276,33 +320,19 @@ func CoverageMarkdown(reg *arm.Registry) string {
 	for _, t := range reg.All() {
 		fmt.Fprintf(&b, "| `%s` | %s | %d | %s |\n", t.FullType(), strings.Join(t.APIVersions, ", "), t.Phase, t.Notes)
 	}
-	b.WriteString(graphCoverage)
+	b.WriteString("\n## Entra ID token service (`login.<domain>`)\n\n| Endpoint | Notes |\n|---|---|\n")
+	for _, s := range TokenServices {
+		fmt.Fprintf(&b, "| %s | %s |\n", s.Display, s.Notes)
+	}
+	b.WriteString("\n## Microsoft Graph subset (`graph.<domain>/v1.0` and `/beta`)\n\n| Resource | Operations |\n|---|---|\n")
+	for _, s := range GraphServices {
+		fmt.Fprintf(&b, "| %s | %s |\n", s.Display, s.Notes)
+	}
+	b.WriteString(graphFooter)
 	return b.String()
 }
 
-const graphCoverage = `
-## Entra ID token service (` + "`login.<domain>`" + `)
-
-| Endpoint | Notes |
-|---|---|
-| ` + "`/{tenant}/oauth2/v2.0/token`, `/{tenant}/oauth2/token`" + ` | client_credentials with client secret or federated client assertion (workload identity); RS256 JWTs with tid/oid/appid/roles/groups |
-| ` + "`/{tenant}/v2.0/.well-known/openid-configuration`, `/{tenant}/discovery/v2.0/keys`" + ` | OIDC discovery + JWKS |
-| ` + "`/common/discovery/instance`" + ` | MSAL instance discovery |
-
-## Microsoft Graph subset (` + "`graph.<domain>/v1.0` and `/beta`" + `)
-
-| Resource | Operations |
-|---|---|
-| users | list/get/create/update/delete (soft delete), lookup by UPN, memberOf/transitiveMemberOf, password complexity, verified-domain check |
-| groups | list/get/create/update/delete, owners & members (` + "`$ref`" + `, ` + "`@odata.bind`" + `), transitiveMembers |
-| applications | list/get/create/update/delete, ` + "`applications(appId='…')`" + `, owners, addPassword/removePassword, federatedIdentityCredentials |
-| servicePrincipals | list/get/create/update/delete, ` + "`servicePrincipals(appId='…')`" + `, owners, addPassword, appRoleAssignedTo, appRoleAssignments |
-| oauth2PermissionGrants | list/get/create/update/delete |
-| directoryRoles, directoryRoleTemplates | list, activate, members |
-| directoryObjects | get, getByIds |
-| directory/deletedItems | list by type, get, restore, permanent delete |
-| organization, domains | read |
-
+const graphFooter = `
 OData: ` + "`$filter`" + ` (eq, ne, startswith, in, any(), and/or/not), ` + "`$select`, `$top`, `$count`, `$orderby`, `$search`" + ` (simple), paging via ` + "`@odata.nextLink`" + `.
 Application permissions (app roles on the seeded *Microsoft Graph* service principal) are enforced and returned as ` + "`Authorization_RequestDenied`" + ` when missing.
 `

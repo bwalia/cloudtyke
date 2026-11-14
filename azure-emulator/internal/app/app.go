@@ -4,10 +4,12 @@ package app
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/activitylog"
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/admin"
@@ -26,6 +28,7 @@ import (
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/insights"
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/resources"
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/seed"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/selftest"
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/store"
 )
 
@@ -104,15 +107,48 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	authorization.Register(armSrv)
 	insights.Register(armSrv)
 
+	services := admin.Services(armSrv.Registry)
+	selfTest := selftest.Handler(cfg.Domain, services, func() (http.Handler, func(), error) {
+		iso, done, err := NewIsolated(cfg)
+		if err != nil {
+			return nil, nil, err
+		}
+		return iso.Handler, done, nil
+	})
+
 	reqLog := gateway.NewRequestLog(500)
 	gw := &gateway.Gateway{
 		Cfg:    cfg,
 		ARM:    ch.Middleware(armSrv),
 		Login:  authSvc,
 		Graph:  &graph.Server{Cfg: cfg, Auth: authSvc, Dir: dir},
-		Admin:  &admin.Server{Cfg: cfg, Store: st, Registry: armSrv.Registry, Log: reqLog, Chaos: ch, CAPEM: bundle.CAPEM, Seed: seedFile, WriteMu: &armSrv.WriteMu},
+		Admin:  &admin.Server{Cfg: cfg, Store: st, Registry: armSrv.Registry, Log: reqLog, Chaos: ch, CAPEM: bundle.CAPEM, Seed: seedFile, WriteMu: &armSrv.WriteMu, SelfTest: selfTest},
 		Log:    reqLog,
 		Logger: logger,
 	}
 	return &App{Cfg: cfg, Store: st, PKI: bundle, Signer: signer, Handler: gw, ARM: armSrv, Seed: seedFile}, nil
+}
+
+// NewIsolated builds a throwaway in-memory emulator with cfg's domain and
+// the default seed, used by the self-test so it never touches real state.
+// Call the returned func to release its temporary directory.
+func NewIsolated(cfg config.Config) (*App, func(), error) {
+	dir, err := os.MkdirTemp("", "cloudtyke-selftest-")
+	if err != nil {
+		return nil, nil, err
+	}
+	done := func() { _ = os.RemoveAll(dir) }
+	c := cfg
+	c.DataDir, c.CertExportDir, c.Ephemeral, c.SeedFile = dir, "", true, ""
+	c.StrictAPIVersions = false
+	c.AsyncDelay = 50 * time.Millisecond
+	if c.PageSize == 0 {
+		c.PageSize = 100
+	}
+	a, err := New(c, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		done()
+		return nil, nil, err
+	}
+	return a, func() { _ = a.Store.Close(); done() }, nil
 }

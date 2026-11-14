@@ -4,8 +4,10 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMPOSE := docker compose
 TOOLBOX := $(COMPOSE) run --rm -T toolbox
 EXAMPLES ?= quickstart entra
+REPORTS ?= reports
+GO_TEST_FLAGS ?= -count=1
 
-.PHONY: help build test test-race lint coverage coverage-check up down clean logs reset env shell tf-e2e tf-e2e-terraform
+.PHONY: help build test test-race test-services test-all selftest lint coverage coverage-check up down clean logs reset env shell tf-e2e tf-e2e-terraform
 
 help: ## show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -19,6 +21,30 @@ test: ## unit + integration tests
 
 test-race: ## tests with the race detector
 	go test -race -count=1 ./...
+
+test-services: ## one conformance check per coverage-matrix service (fast, in-process)
+	go test -count=1 -v ./test/conformance
+
+test-all: ## every test + HTML/JUnit report in reports/ (SKIP_E2E=1 skips the slow Terraform runs)
+	@mkdir -p $(REPORTS) && rm -f $(REPORTS)/e2e-*.log
+	@echo "==> unit, integration and per-service tests"
+	@go test -json $(GO_TEST_FLAGS) ./... > $(REPORTS)/go-test.json || true
+	@if [ -z "$(SKIP_E2E)" ]; then \
+	  echo "==> starting emulator"; \
+	  if $(MAKE) --no-print-directory up > $(REPORTS)/up.log 2>&1; then \
+	    echo "==> Terraform e2e with OpenTofu (a few minutes)"; \
+	    $(MAKE) --no-print-directory tf-e2e > $(REPORTS)/e2e-tofu.log 2>&1 || true; \
+	    echo "==> Terraform e2e with Terraform (a few minutes)"; \
+	    $(MAKE) --no-print-directory tf-e2e-terraform > $(REPORTS)/e2e-terraform.log 2>&1 || true; \
+	  else \
+	    echo "emulator failed to start, see $(REPORTS)/up.log" | tee $(REPORTS)/e2e-tofu.log > $(REPORTS)/e2e-terraform.log; \
+	  fi; \
+	fi
+	@go run ./test/report -in $(REPORTS)/go-test.json -out $(REPORTS) \
+	  -e2e OpenTofu=$(REPORTS)/e2e-tofu.log -e2e Terraform=$(REPORTS)/e2e-terraform.log
+
+selftest: build ## run the live self-test inside the running emulator (also at https://localhost/_cloudtyke/selftest)
+	bin/tyke azure selftest
 
 lint: ## gofmt + go vet
 	@test -z "$$(gofmt -l .)" || (gofmt -l . && echo "run gofmt -w ." && exit 1)
