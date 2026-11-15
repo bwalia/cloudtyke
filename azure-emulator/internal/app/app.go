@@ -111,6 +111,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	aks, dataPlanes := registerPhase2(armSrv, aksBackend(cfg, logger))
 	aks.CAPEM = bundle.CAPEM
 	authSvc.IssuerJWKS = aks.JWKSForIssuer
+	if err := loadTrustedIssuers(cfg.TrustedIssuersFile, authSvc); err != nil {
+		return nil, err
+	}
 
 	services := admin.Services(armSrv.Registry)
 	selfTest := selftest.Handler(cfg.Domain, services, func() (http.Handler, func(), error) {

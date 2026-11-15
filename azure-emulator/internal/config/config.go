@@ -31,6 +31,11 @@ type Config struct {
 	// TrustForwardedHost takes the request's host from X-Original-Host or
 	// X-Forwarded-Host. Only enable it behind a proxy that sets them.
 	TrustForwardedHost bool
+	// TrustedIssuersFile is a JSON object {"<issuer>": {"keys": [JWK...]}} of
+	// extra OIDC issuers whose tokens federated credentials accept, for issuers
+	// that can't be discovered over the network (e.g. the service-account
+	// issuer of the Kubernetes cluster the emulator runs in).
+	TrustedIssuersFile string
 }
 
 // FromEnv reads the configuration from the environment.
@@ -49,6 +54,7 @@ func FromEnv() Config {
 		AKSBackend:         strings.ToLower(env("CLOUDTYKE_AKS_BACKEND", "stub")),
 		HTTPListen:         env("CLOUDTYKE_HTTP_LISTEN", ""),
 		TrustForwardedHost: envBool("CLOUDTYKE_TRUST_FORWARDED_HOST", false),
+		TrustedIssuersFile: env("CLOUDTYKE_TRUSTED_ISSUERS_FILE", ""),
 		DocsURL:            env("CLOUDTYKE_DOCS_URL", "https://github.com/bwalia/cloudtyke/blob/main/azure-emulator/docs/coverage.md"),
 	}
 	if v := os.Getenv("CLOUDTYKE_EXTRA_HOSTS"); v != "" {
