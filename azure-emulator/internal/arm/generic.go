@@ -58,12 +58,21 @@ func (s *Server) SaveResource(body map[string]any) error {
 func (s *Server) DeleteTree(path string) int {
 	key := StoreKey(path)
 	n := 0
-	if ok, _ := s.Store.Delete(store.BucketARM, key); ok {
-		n++
-	}
 	var keys []string
-	_ = s.Store.Scan(store.BucketARM, key+"/", func(k string, _ []byte) bool {
+	var docs []map[string]any
+	if v, ok, _ := s.Store.Get(store.BucketARM, key); ok {
+		keys = append(keys, key)
+		var m map[string]any
+		if json.Unmarshal(v, &m) == nil {
+			docs = append(docs, m)
+		}
+	}
+	_ = s.Store.Scan(store.BucketARM, key+"/", func(k string, v []byte) bool {
 		keys = append(keys, k)
+		var m map[string]any
+		if json.Unmarshal(v, &m) == nil {
+			docs = append(docs, m)
+		}
 		return true
 	})
 	for _, k := range keys {
@@ -71,7 +80,24 @@ func (s *Server) DeleteTree(path string) int {
 			n++
 		}
 	}
+	// cleanups run after removal so they may delete other trees (AKS node
+	// resource groups) without recursing into what was just removed.
+	for _, m := range docs {
+		if f := s.cleanup[strings.ToLower(strOf(m["type"]))]; f != nil {
+			f(m)
+		}
+	}
 	return n
+}
+
+// OnDeleted registers a cleanup that runs whenever a resource of fullType is
+// removed, including by a resource group (cascade) delete: e.g. a managed
+// identity removes its service principal, AKS removes its node resource group.
+func (s *Server) OnDeleted(fullType string, f func(body map[string]any)) {
+	if s.cleanup == nil {
+		s.cleanup = map[string]func(map[string]any){}
+	}
+	s.cleanup[strings.ToLower(fullType)] = f
 }
 
 // Children lists direct children of parentPath of the given child type
@@ -86,6 +112,20 @@ func (s *Server) Children(collectionPath string) []map[string]any {
 		}
 		var m map[string]any
 		if json.Unmarshal(v, &m) == nil {
+			out = append(out, m)
+		}
+		return true
+	})
+	return out
+}
+
+// ListAcrossResourceGroups returns every resource of fullType in a subscription.
+func (s *Server) ListAcrossResourceGroups(sub, fullType string) []map[string]any {
+	prefix := strings.ToLower("/subscriptions/" + sub + "/resourcegroups/")
+	var out []map[string]any
+	_ = s.Store.Scan(store.BucketARM, prefix, func(_ string, v []byte) bool {
+		var m map[string]any
+		if json.Unmarshal(v, &m) == nil && strings.EqualFold(strOf(m["type"]), fullType) {
 			out = append(out, m)
 		}
 		return true
@@ -137,7 +177,12 @@ func Generic(o GenericOptions) Handler {
 				q.Error(405, "MethodNotAllowed", "The requested method is not allowed on a collection.")
 				return
 			}
-			items := q.S.Children(path)
+			var items []map[string]any
+			if len(reg.Types) == 1 && ScopeResourceGroup(q.ID.Scope) == "" && ScopeSubscription(q.ID.Scope) != "" {
+				items = q.S.ListAcrossResourceGroups(ScopeSubscription(q.ID.Scope), reg.FullType())
+			} else {
+				items = q.S.Children(path)
+			}
 			for i := range items {
 				items[i] = present(items[i])
 			}

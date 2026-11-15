@@ -154,7 +154,11 @@ func readGoTest(path string) ([]Case, error) {
 			continue
 		}
 		k := key{e.Package, e.Test}
-		if i := strings.LastIndex(e.Test, "/"); i > 0 {
+		if strings.HasPrefix(e.Test, servicePrefix) {
+			// service IDs contain "/" (privateDnsZones and privateDnsZones/A are
+			// siblings, not parent and child): their only parent is TestServices
+			parents[key{e.Package, strings.TrimSuffix(servicePrefix, "/")}] = true
+		} else if i := strings.LastIndex(e.Test, "/"); i > 0 {
 			parents[key{e.Package, e.Test[:i]}] = true
 		}
 		switch e.Action {

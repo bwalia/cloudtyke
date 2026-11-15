@@ -77,6 +77,9 @@ type Service struct {
 	issuerMu   sync.RWMutex
 	issuerKeys map[string]*rsa.PublicKey
 	httpClient *http.Client
+	// IssuerJWKS returns the signing keys of an AKS cluster OIDC issuer
+	// (ok=false when iss is not one).
+	IssuerJWKS func(iss string) (keys []map[string]any, ok bool)
 }
 
 // NewService builds the token service.
@@ -218,6 +221,17 @@ func (s *Service) token(w http.ResponseWriter, r *http.Request, tenantSeg string
 
 	// authenticate the client
 	app, found := s.Dir.FindBy(tenant.ID, entra.Applications, "appId", clientID)
+	if !found {
+		// managed identities have a service principal but no application;
+		// their federated credentials (workload identity) live on the SP.
+		if mi, ok := s.Dir.FindBy(tenant.ID, entra.ServicePrincipals, "appId", clientID); ok && mi["servicePrincipalType"] == "ManagedIdentity" {
+			if f.Get("client_assertion") == "" {
+				oauthError(w, 401, "invalid_client", fmt.Sprintf("AADSTS700027: Managed identity '%s' cannot use a client secret. Use a federated client assertion (workload identity).", clientID))
+				return
+			}
+			app, found = mi, true
+		}
+	}
 	if assertion := f.Get("client_assertion"); assertion != "" {
 		if f.Get("client_assertion_type") != "urn:ietf:params:oauth:client-assertion-type:jwt-bearer" {
 			oauthError(w, 400, "invalid_request", "AADSTS700016: client_assertion_type must be urn:ietf:params:oauth:client-assertion-type:jwt-bearer.")
@@ -415,6 +429,15 @@ func (s *Service) issuerKey(iss string) (*rsa.PublicKey, error) {
 	s.issuerMu.RUnlock()
 	if k != nil {
 		return k, nil
+	}
+	// AKS OIDC issuers (oidc.<domain>/<tenant>/<cluster>) are signed by the cluster
+	if s.IssuerJWKS != nil {
+		if keys, ok := s.IssuerJWKS(iss); ok {
+			if len(keys) == 0 {
+				return nil, fmt.Errorf("the cluster's OIDC issuer has no signing keys (use CLOUDTYKE_AKS_BACKEND=k3s for service account tokens)")
+			}
+			return ParseJWK(keys[0])
+		}
 	}
 	if strings.Contains(iss, s.Cfg.Domain) {
 		return s.Signer.PublicKey(), nil

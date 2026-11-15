@@ -43,7 +43,7 @@ eval "$(bin/tyke azure env)"            # ARM_METADATA_HOSTNAME, ARM_CLIENT_ID, 
 cd examples/terraform/quickstart && terraform init && terraform apply
 ```
 
-## What works today (phases 0 and 1)
+## What works today
 
 | Area | Highlights |
 |---|---|
@@ -52,7 +52,53 @@ cd examples/terraform/quickstart && terraform init && terraform apply
 | Microsoft Graph | users, groups, owners/members, applications, service principals, passwords, federated credentials, app role assignments, directory roles, deleted items; **application permissions enforced** |
 | ARM core | subscriptions, tenants, locations, provider registration, resource groups (async delete, cascade), resource listing |
 | Azure RBAC | built-in roles (real GUIDs), custom roles, assignments at MG, subscription, RG and resource scope with inheritance; **enforced on every call** (`AuthorizationFailed`) |
+| Networking | VNets, subnets, peerings (`Initiated` → `Connected`), NSGs with default rules, route tables, public IPs, private DNS zones, links and records; CIDR / overlap / in-use checks with Azure's error codes; **effective routes and hop-by-hop packet traces** |
+| Virtual Network Manager | network managers, network groups, hub-and-spoke and mesh connectivity (ANM peerings, connected groups, global mesh), security admin rules evaluated before NSGs, per-region commits and deployment status |
+| Managed identities | user-assigned and system-assigned identities backed by real service principals; federated credentials that the token service honours |
+| Log Analytics, ACR | workspaces (customer id, retention, shared keys); registries (SKU rules, global names, admin credentials, geo-replication) |
+| **AKS** | managed clusters and node pools, version catalogue and one-minor upgrades, `MC_*` node resource group with kubelet / add-on identities, outbound IP, NSG, route table, kubenet / Azure CNI / overlay / BYO subnet, `ServiceCidrOverlapExistingSubnetsCidr` and UDR checks, AAD + Azure RBAC, OIDC issuer + workload identity, Container insights, credentials, stop/start; **`kubectl` works** (built-in API, or a real k3s per cluster) |
 | Platform | activity log, async operations, paging, ETags, structured logs, request ring buffer, snapshots, reset, chaos (429/5xx/latency/slow LROs) |
+
+### Examples (each runs apply → no-drift plan → destroy in CI, with OpenTofu and Terraform)
+
+| Example | What it builds |
+|---|---|
+| [`quickstart`](examples/terraform/quickstart) | resource groups, an Entra group, built-in and custom roles |
+| [`entra`](examples/terraform/entra) | users, groups, applications, service principals, secrets, app role grants |
+| [`aks-platform`](examples/terraform/aks-platform) | VNet + NSG, Log Analytics, ACR, user-assigned identities, an AKS cluster (Azure CNI overlay, Cilium, Azure RBAC, Container insights, Key Vault CSI, workload identity), a user node pool, AcrPull for the kubelet identity, a federated credential for a service account |
+| [`landing-zone`](examples/terraform/landing-zone) | a Cloud Adoption Framework-style platform across **three subscriptions**: central Log Analytics; a hub VNet with firewall / gateway / bastion subnets, public IPs, private DNS zones and a shared Premium ACR; two application landing zones (corp and online) with spoke VNets peered both ways, NSGs, forced-tunnel route tables, DNS links; six people in role-based Entra groups; group-based RBAC; GitHub OIDC deployment identities; and an AKS cluster in the corp spoke with `userDefinedRouting` egress (100 resources) |
+
+### Labs
+
+Hands-on, graded labs for engineers. Each one changes one Terraform variable per task, and `verify.sh` traces packets
+through the emulator's routing model (effective routes, peerings, appliances, Virtual Network Manager, NSGs) and
+prints PASS / FAIL with the reason for every hop.
+
+| Lab | You learn |
+|---|---|
+| [`labs/hub-spoke`](labs/hub-spoke) | system routes, two-sided peering, why peering is not transitive, direct spoke peering vs routing through the hub firewall, `allowForwardedTraffic`, symmetric UDRs, NSGs and the `VirtualNetwork` tag |
+| [`labs/avnm`](labs/avnm) | Azure Virtual Network Manager across two regions: network groups, hub-and-spoke and mesh connectivity, connected groups, global mesh, commits per region, security admin rules (`Deny` / `AlwaysAllow` vs team NSGs), scaling to dozens of spokes without peering code |
+
+`make lab-hub-spoke` and `make lab-avnm` (add `TOOL=terraform`) run a whole lab and grade it. The same trace is
+available at `/_cloudtyke/network/trace?from=<ip>&to=<ip>&port=<n>`, `/_cloudtyke/network/routes?ip=<ip>`, and on the
+console's **Network** page.
+
+### AKS and `kubectl`
+
+`listClusterAdminCredential` (and Terraform's `kube_admin_config_raw`, or `az aks get-credentials --admin`) returns a
+kubeconfig for `https://<dns-prefix>-<hash>.cloudtyke.local`. Inside the toolbox that name resolves to the emulator:
+
+```bash
+tofu output -raw kube_admin_config > ~/.kube/config && kubectl get nodes
+```
+
+On your host, add `--server https://localhost --tls-server-name <cluster fqdn>` (the emulator routes by TLS server name).
+
+By default a built-in, read-only Kubernetes API answers: nodes match the node pools (count, VM size, zones, labels,
+taints), plus the system namespaces and add-on pods. For a **real cluster per AKS resource**, start with `make up-k3s`:
+the emulator then runs a `rancher/k3s` container for every cluster on the compose network, proxies `kubectl` to it after
+checking the AKS credential, and points its service account issuer at the cluster's OIDC issuer URL. That mode mounts the
+Docker socket into the emulator, which is root-equivalent access to the machine: use it on a development box only.
 
 Everything else returns `501 NotImplemented`, naming the resource type, so you always know where the edge is. See
 [docs/coverage.md](docs/coverage.md) (generated) and the honest [docs/known-gaps.md](docs/known-gaps.md).
@@ -80,6 +126,8 @@ seed file (`CLOUDTYKE_SEED_FILE`, same schema as [internal/seed/default.yaml](in
 | `CLOUDTYKE_ASYNC_DELAY` | `0s` | how long async operations stay `InProgress` |
 | `CLOUDTYKE_STRICT_API_VERSIONS` | `false` | reject api-versions that aren't modelled |
 | `CLOUDTYKE_ADMIN_TOKEN` | empty | protects `/_cloudtyke/*` (except health) |
+| `CLOUDTYKE_AKS_BACKEND` | `stub` | what answers `kubectl` for AKS clusters: `stub` or `k3s` (see `make up-k3s`) |
+| `CLOUDTYKE_K3S_IMAGE` | `rancher/k3s:v1.33.5-k3s1` | image for the k3s backend |
 | `CLOUDTYKE_SUBNET` / `CLOUDTYKE_EMULATOR_IP` / `CLOUDTYKE_DNS_IP` | `10.253.53.0/24`, `.10`, `.53` | compose network |
 
 ## Admin API (`/_cloudtyke/`)

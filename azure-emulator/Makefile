@@ -1,13 +1,15 @@
 # CloudTyke Azure emulator
 SHELL := /bin/bash
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-COMPOSE := docker compose
+# `make up-k3s` leaves a marker so every later target keeps the k3s override
+# (otherwise `docker compose run toolbox` would recreate the emulator without it).
+COMPOSE := docker compose $(if $(wildcard .k3s-mode),-f docker-compose.yml -f docker-compose.k3s.yml,)
 TOOLBOX := $(COMPOSE) run --rm -T toolbox
-EXAMPLES ?= quickstart entra
+EXAMPLES ?= quickstart entra aks-platform landing-zone
 REPORTS ?= reports
 GO_TEST_FLAGS ?= -count=1
 
-.PHONY: help build test test-race test-services test-all selftest lint coverage coverage-check up down clean logs reset env shell tf-e2e tf-e2e-terraform dashboard dashboard-lan dashboard-dev
+.PHONY: help build test test-race test-services test-all selftest lint coverage coverage-check up up-k3s down clean logs reset env shell tf-e2e tf-e2e-terraform aks-k3s-smoke lab-hub-spoke lab-avnm dashboard dashboard-lan dashboard-dev
 
 help: ## show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -57,7 +59,13 @@ coverage-check: ## fail if docs/coverage.md is stale
 	@go run ./cmd/emulator coverage | diff -u docs/coverage.md - || (echo "docs/coverage.md is stale: run make coverage" && exit 1)
 
 up: ## start emulator + DNS sidecar and export certs/ca.pem
-	$(COMPOSE) up -d --build --wait
+	@rm -f .k3s-mode
+	docker compose up -d --build --wait
+	@mkdir -p certs && $(COMPOSE) cp emulator:/data/certs/ca.pem certs/ca.pem && echo "CA exported to certs/ca.pem"
+
+up-k3s: ## like up, but every AKS cluster gets a real k3s container (mounts the Docker socket)
+	@touch .k3s-mode
+	docker compose -f docker-compose.yml -f docker-compose.k3s.yml up -d --build --wait
 	@mkdir -p certs && $(COMPOSE) cp emulator:/data/certs/ca.pem certs/ca.pem && echo "CA exported to certs/ca.pem"
 
 down: ## stop containers (state volume is kept)
@@ -97,3 +105,16 @@ tf-e2e: ## run the examples through init/validate/apply/plan(no drift)/destroy w
 tf-e2e-terraform: ## same with HashiCorp Terraform
 	$(COMPOSE) --profile tools build toolbox
 	$(TOOLBOX) ./test/e2e-terraform/run.sh terraform $(EXAMPLES)
+
+lab-hub-spoke: ## grade the hub-and-spoke lab end to end (TOOL=tofu|terraform)
+	$(COMPOSE) --profile tools build toolbox
+	$(TOOLBOX) ./test/labs/hub-spoke.sh $(or $(TOOL),tofu)
+
+lab-avnm: ## grade the Virtual Network Manager lab end to end (TOOL=tofu|terraform)
+	$(COMPOSE) --profile tools build toolbox
+	$(TOOLBOX) ./test/labs/avnm.sh $(or $(TOOL),tofu)
+
+aks-k3s-smoke: ## real k3s AKS cluster + kubectl + workload identity end to end (after make up-k3s)
+	@test -f .k3s-mode || (echo "run make up-k3s first" && exit 1)
+	$(COMPOSE) --profile tools build toolbox
+	$(TOOLBOX) ./test/aks-k3s/smoke.sh

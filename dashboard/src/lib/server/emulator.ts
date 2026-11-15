@@ -125,6 +125,12 @@ export interface EmuResponse {
   durationMs: number;
 }
 
+/** Calls an arbitrary host served by the emulator (e.g. an AKS cluster fqdn), verifying TLS. */
+export async function requestHost(hostname: string, method: string, pathAndQuery: string, headers: Record<string, string> = {}): Promise<EmuResponse> {
+  const a = await agent();
+  return rawRequest(a, false, hostname, method, pathAndQuery, { accept: "application/json", "user-agent": "cloudtyke-dashboard", ...headers });
+}
+
 export async function request(
   svc: Service,
   method: string,

@@ -4,6 +4,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/network"
 	"io"
 	"log/slog"
 	"net/http"
@@ -50,6 +51,7 @@ func Registry() *arm.Registry {
 	resources.Register(s)
 	authorization.Register(s)
 	insights.Register(s)
+	registerPhase2(s)
 	return s.Registry
 }
 
@@ -106,6 +108,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	resources.Register(armSrv)
 	authorization.Register(armSrv)
 	insights.Register(armSrv)
+	aks := registerPhase2(armSrv, aksBackend(cfg, logger))
+	aks.CAPEM = bundle.CAPEM
+	authSvc.IssuerJWKS = aks.JWKSForIssuer
 
 	services := admin.Services(armSrv.Registry)
 	selfTest := selftest.Handler(cfg.Domain, services, func() (http.Handler, func(), error) {
@@ -122,7 +127,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		ARM:    ch.Middleware(armSrv),
 		Login:  authSvc,
 		Graph:  &graph.Server{Cfg: cfg, Auth: authSvc, Dir: dir},
-		Admin:  &admin.Server{Cfg: cfg, Store: st, Registry: armSrv.Registry, Log: reqLog, Chaos: ch, CAPEM: bundle.CAPEM, Seed: seedFile, WriteMu: &armSrv.WriteMu, SelfTest: selfTest},
+		Kube:   aks.KubeAPI,
+		OIDC:   aks.OIDCHandler(),
+		Admin:  &admin.Server{Cfg: cfg, Store: st, Registry: armSrv.Registry, Log: reqLog, Chaos: ch, CAPEM: bundle.CAPEM, Seed: seedFile, WriteMu: &armSrv.WriteMu, SelfTest: selfTest, Network: network.LabHandler(armSrv)},
 		Log:    reqLog,
 		Logger: logger,
 	}
@@ -133,6 +140,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 // the default seed, used by the self-test so it never touches real state.
 // Call the returned func to release its temporary directory.
 func NewIsolated(cfg config.Config) (*App, func(), error) {
+	cfg.AKSBackend = "stub" // never start containers for a self-test
 	dir, err := os.MkdirTemp("", "cloudtyke-selftest-")
 	if err != nil {
 		return nil, nil, err
