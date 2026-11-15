@@ -15,6 +15,7 @@ W=/work/examples/terraform/hello-web
 KC=/work/reports/.hello-web-kubeconfig # reports/ is git-ignored
 PROXY=hello-web-proxy
 cd "$EMU"
+mkdir -p reports # git-ignored scratch space, shared with the toolbox as /work/reports
 
 if [ ! -f .k3s-mode ]; then
   echo "==> switching the emulator to k3s mode (AKS clusters become real Kubernetes)"

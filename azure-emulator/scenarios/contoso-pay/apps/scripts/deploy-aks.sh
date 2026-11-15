@@ -15,6 +15,7 @@ TOOL=${TOOL:-tofu}
 TF=/work/scenarios/contoso-pay/terraform
 KC=/work/reports/.contoso-pay-kubeconfig # reports/ is git-ignored
 cd "$EMU"
+mkdir -p reports # git-ignored scratch space, shared with the toolbox as /work/reports
 [ -f .k3s-mode ] || { echo "The AKS cluster needs the k3s backend: run 'make up-k3s' and 'make contoso-pay' first." >&2; exit 1; }
 [ -f "$APPS/.env" ] || { echo "Run 'make contoso-pay' first." >&2; exit 1; }
 COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.k3s.yml)
