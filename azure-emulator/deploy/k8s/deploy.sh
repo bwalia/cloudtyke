@@ -62,6 +62,13 @@ CRED
   echo "    saved to reports/.cloudtyke-dev-credentials"
 fi
 
+# Workload identity for pods in this cluster: the emulator can't discover the
+# cluster's service-account issuer, so give it the issuer's public keys.
+iss=$(kubectl get --raw /.well-known/openid-configuration | jq -r .issuer)
+kubectl get --raw /openid/v1/jwks | jq --arg iss "$iss" '{($iss): .}' >"${TMPDIR:-/tmp}/cloudtyke-issuers.json"
+kubectl -n "$NS" create configmap cloudtyke-issuers --from-file=issuers.json="${TMPDIR:-/tmp}/cloudtyke-issuers.json" \
+  --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+
 echo "==> applying manifests"
 envsubst '${IMAGE_TAG}' <"$EMU/deploy/k8s/cloudtyke.yaml" | kubectl apply -f - >/dev/null
 kubectl -n "$NS" rollout status deploy/emulator --timeout=300s
