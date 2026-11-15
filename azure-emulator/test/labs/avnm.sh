@@ -24,6 +24,6 @@ stage regional-mesh -var stage=regional-mesh
 stage global-mesh   -var stage=global-mesh
 stage security      -var stage=global-mesh -var security_admin=true
 echo "=== destroy"
-"$BIN" destroy -auto-approve -input=false -no-color | grep -E "^Destroy complete"
+"$BIN" destroy -auto-approve -input=false -no-color -var stage=global-mesh -var security_admin=true | grep -E "^Destroy complete"
 trap 'rm -rf -- "${work:?}"' EXIT
 echo "LAB PASSED"

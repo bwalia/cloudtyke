@@ -79,6 +79,7 @@ func Register(s *arm.Server) {
 	reg([]string{"networkSecurityGroups"}, APIVersions, "inline securityRules synced with child resources, the six default rules, priority/direction conflicts, delete blocked while associated",
 		arm.Generic(arm.GenericOptions{Tracked: true, Async: true,
 			Prepare: func(q *arm.Request, body, existing map[string]any) error {
+				stripReadOnly("networkSecurityGroups", props(body))
 				return rules.Sync(q, q.ID.Path(ns, q.Reg.Types), ns+"/networkSecurityGroups", props(body))
 			},
 			Present: func(q *arm.Request, b map[string]any) map[string]any { return presentNSG(q.S, b) },
@@ -102,6 +103,7 @@ func Register(s *arm.Server) {
 		arm.Generic(arm.GenericOptions{Tracked: true, Async: true,
 			Prepare: func(q *arm.Request, body, existing map[string]any) error {
 				p := props(body)
+				stripReadOnly("routeTables", p)
 				if _, ok := p["disableBgpRoutePropagation"]; !ok {
 					p["disableBgpRoutePropagation"] = false
 				}
@@ -205,6 +207,22 @@ func strList(v any) []string {
 	return out
 }
 
+// readOnly lists computed properties Azure ignores on PUT. Clients (Terraform)
+// often echo them back from a GET; storing them would create false references.
+var readOnly = map[string][]string{
+	"virtualNetworks":       {"virtualNetworkPeerings"},
+	"subnets":               {"ipConfigurations", "ipConfigurationProfiles", "privateEndpoints", "resourceNavigationLinks", "serviceAssociationLinks", "purpose"},
+	"networkSecurityGroups": {"defaultSecurityRules", "subnets", "networkInterfaces", "flowLogs"},
+	"routeTables":           {"subnets"},
+	"publicIPAddresses":     {"ipConfiguration"},
+}
+
+func stripReadOnly(kind string, p map[string]any) {
+	for _, k := range readOnly[kind] {
+		delete(p, k)
+	}
+}
+
 func refID(v any) string {
 	m, _ := v.(map[string]any)
 	return strOf(m["id"])
@@ -256,6 +274,14 @@ func vnetPrefixes(p map[string]any) []string {
 func prepareVNet(q *arm.Request, body map[string]any) error {
 	id := q.ID.Path(ns, q.Reg.Types)
 	p := props(body)
+	stripReadOnly("virtualNetworks", p)
+	if list, ok := p["subnets"].([]any); ok {
+		for _, it := range list {
+			if m, _ := it.(map[string]any); m != nil {
+				stripReadOnly("subnets", props(m))
+			}
+		}
+	}
 	list := vnetPrefixes(p)
 	if len(list) == 0 {
 		return arm.BadRequest("InvalidAddressSpace", arm.Errorf("Virtual network %s must have at least one address prefix in properties.addressSpace.addressPrefixes.", q.ID.Name()))
@@ -332,6 +358,7 @@ func subnetPrefixList(p map[string]any) []string {
 
 func validateSubnet(q *arm.Request, vnetID string, vnetProps, child map[string]any, siblings []map[string]any) error {
 	p := props(child)
+	stripReadOnly("subnets", p)
 	name := strOf(child["name"])
 	list := subnetPrefixList(p)
 	if len(list) == 0 {
@@ -595,6 +622,7 @@ func isServiceTag(s string) bool { return !strings.ContainsAny(s, "./:") }
 
 func preparePublicIP(q *arm.Request, body, existing map[string]any) error {
 	p := props(body)
+	stripReadOnly("publicIPAddresses", p)
 	sku, _ := body["sku"].(map[string]any)
 	if sku == nil {
 		sku = map[string]any{"name": "Standard"}

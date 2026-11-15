@@ -104,3 +104,26 @@ jobs:
         run: |
           docker ps -aq --filter label=cloudtyke.managed=true | xargs -r docker rm -f
           docker compose -f docker-compose.yml -f docker-compose.k3s.yml --profile tools down -v
+
+  labs:
+    name: labs (${{ matrix.tool }})
+    runs-on: ubuntu-latest
+    needs: unit
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: [tofu, terraform]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start a fresh emulator
+        run: CLOUDTYKE_EPHEMERAL=true docker compose up -d --build --wait
+      - name: Hub-and-spoke lab (six graded stages)
+        run: make lab-hub-spoke TOOL=${{ matrix.tool }}
+      - name: Virtual Network Manager lab (four graded stages, two regions)
+        run: make lab-avnm TOOL=${{ matrix.tool }}
+      - name: Diagnostics
+        if: failure()
+        run: docker compose logs emulator | tail -200
+      - name: Tear down
+        if: always()
+        run: docker compose --profile tools down -v

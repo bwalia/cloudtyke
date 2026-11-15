@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import useSWR from "swr";
 
 import { JsonView } from "@/components/json";
+import { TracePanel, hostsFrom } from "@/components/trace";
 import { Drawer } from "@/components/overlay";
 import { DataTable } from "@/components/table";
 import { Badge, Button, Card, EmptyState, ErrorState, Mono, PageHeader, Skeleton, cx, statusTone } from "@/components/ui";
@@ -51,12 +52,41 @@ function useVNets(subs: Subscription[]) {
   });
 }
 
+interface EffRoute {
+  source: string;
+  state: string;
+  addressPrefix: string;
+  nextHopType: string;
+  nextHopIpAddress?: string;
+  name?: string;
+}
+
+/** Virtual Network Manager connected groups, read from each VNet's effective routes. */
+function useConnectedGroups(vnets: VNet[]) {
+  const key = vnets.map((v) => v.id).join(",");
+  const r = useSWR(key ? ["connected-groups", key] : null, async () => {
+    const byName = new Map(vnets.map((v) => [v.name, lower(v.id)]));
+    const pairs: [string, string][] = [];
+    await Promise.all(
+      vnets.map(async (v) => {
+        const sn = v.properties.subnets?.[0];
+        if (!sn) return;
+        const routes = await call<{ value: EffRoute[] }>("admin", `/network/routes?subnet=${encodeURIComponent(sn.id)}`).catch(() => ({ value: [] as EffRoute[] }));
+        for (const rt of routes.value) if (rt.nextHopType === "ConnectedGroup" && rt.name && byName.has(rt.name)) pairs.push([lower(v.id), byName.get(rt.name)!]);
+      }),
+    );
+    return pairs;
+  });
+  return r.data ?? [];
+}
+
 export function Network() {
   const subs = useSubscriptions();
   const vnets = useVNets(subs.items);
   const [open, setOpen] = useState<VNet | null>(null);
   const list = vnets.data ?? [];
   const managed = list.filter((v) => !rgOf(v.id).startsWith("MC_"));
+  const groups = useConnectedGroups(list);
 
   return (
     <>
@@ -89,7 +119,13 @@ export function Network() {
           />
         </Card>
       ) : (
-        <Topology vnets={managed.length ? managed : list} onOpen={setOpen} />
+        <Topology vnets={managed.length ? managed : list} groups={groups} onOpen={setOpen} />
+      )}
+
+      {list.length > 1 && (
+        <div className="mt-4">
+          <TracePanel hosts={hostsFrom(managed.length ? managed : list)} />
+        </div>
       )}
 
       <div className="mt-4">
@@ -128,25 +164,46 @@ export function Network() {
   );
 }
 
-function Topology({ vnets, onOpen }: { vnets: VNet[]; onOpen: (v: VNet) => void }) {
-  const W = 1000;
-  const H = 480;
+function Topology({ vnets, groups, onOpen }: { vnets: VNet[]; groups: [string, string][]; onOpen: (v: VNet) => void }) {
   const layout = useMemo(() => {
     const degree = new Map<string, number>();
     for (const v of vnets) degree.set(lower(v.id), v.properties.virtualNetworkPeerings?.length ?? 0);
-    const sorted = [...vnets].sort((a, b) => (degree.get(lower(b.id)) ?? 0) - (degree.get(lower(a.id)) ?? 0));
-    const hub = sorted[0] && (degree.get(lower(sorted[0].id)) ?? 0) >= 2 ? sorted[0] : null;
-    const ring = vnets.filter((v) => v !== hub);
+    // hubs: VNets peered with two or more others, each gets a column
+    const hubs = vnets.filter((v) => (degree.get(lower(v.id)) ?? 0) >= 2).sort((a, b) => a.name.localeCompare(b.name));
+    const hubOf = new Map<string, string>();
+    for (const h of hubs)
+      for (const p of h.properties.virtualNetworkPeerings ?? []) {
+        const r = lower(p.properties.remoteVirtualNetwork.id);
+        if (!hubs.some((x) => lower(x.id) === r) && !hubOf.has(r)) hubOf.set(r, lower(h.id));
+      }
+    const clusters = hubs.map((h) => ({ hub: h, spokes: vnets.filter((v) => hubOf.get(lower(v.id)) === lower(h.id)).sort((a, b) => a.name.localeCompare(b.name)) }));
+    const loose = vnets.filter((v) => !hubs.includes(v) && !hubOf.has(lower(v.id)));
+    const COL = 215; // node pitch
     const pos = new Map<string, { x: number; y: number }>();
-    const cx = W / 2;
-    const cy = H / 2;
-    if (hub) pos.set(lower(hub.id), { x: cx, y: cy });
-    const rx = hub ? 360 : 380;
-    const ry = hub ? 170 : 175;
-    ring.forEach((v, i) => {
-      const a = -Math.PI / 2 + (2 * Math.PI * i) / Math.max(1, ring.length);
-      pos.set(lower(v.id), { x: cx + rx * Math.cos(a), y: cy + ry * Math.sin(a) });
-    });
+    let W = 1000;
+    let H = 460;
+    if (hubs.length) {
+      const widths = clusters.map((c) => Math.max(1, Math.ceil(c.spokes.length / 2)) * COL + 40);
+      W = Math.max(1000, widths.reduce((a, b) => a + b, 0), loose.length * COL + 40);
+      H = loose.length ? 560 : 440;
+      let x0 = (W - widths.reduce((a, b) => a + b, 0)) / 2;
+      clusters.forEach((c, i) => {
+        const cx = x0 + widths[i] / 2;
+        pos.set(lower(c.hub.id), { x: cx, y: 220 });
+        const top = c.spokes.slice(0, Math.ceil(c.spokes.length / 2));
+        const bottom = c.spokes.slice(Math.ceil(c.spokes.length / 2));
+        [top, bottom].forEach((row, r) =>
+          row.forEach((v, j) => pos.set(lower(v.id), { x: cx + (j - (row.length - 1) / 2) * COL, y: r === 0 ? 60 : 380 })),
+        );
+        x0 += widths[i];
+      });
+      loose.forEach((v, i) => pos.set(lower(v.id), { x: (W * (i + 1)) / (loose.length + 1), y: H - 50 }));
+    } else {
+      loose.forEach((v, i) => {
+        const a = -Math.PI / 2 + (2 * Math.PI * i) / Math.max(1, loose.length);
+        pos.set(lower(v.id), { x: W / 2 + 380 * Math.cos(a), y: H / 2 + 175 * Math.sin(a) });
+      });
+    }
     // one edge per pair, coloured by the combined state
     const edges: { a: string; b: string; state: string }[] = [];
     const seen = new Set<string>();
@@ -160,10 +217,17 @@ function Topology({ vnets, onOpen }: { vnets: VNet[]; onOpen: (v: VNet) => void 
         edges.push({ a, b, state: p.properties.peeringState });
       }
     }
-    return { pos, edges, hub };
-  }, [vnets]);
+    for (const [a, b] of groups) {
+      const key = [a, b].sort().join("|");
+      if (seen.has(key) || !pos.has(a) || !pos.has(b)) continue;
+      seen.add(key);
+      edges.push({ a, b, state: "ConnectedGroup" });
+    }
+    return { pos, edges, hubs, W, H };
+  }, [vnets, groups]);
+  const { W, H } = layout;
 
-  const color = (s: string) => (s === "Connected" ? "var(--ok)" : s === "Initiated" ? "var(--warn)" : "var(--bad)");
+  const color = (s: string) => (s === "Connected" ? "var(--ok)" : s === "Initiated" ? "var(--warn)" : s === "ConnectedGroup" ? "var(--accent)" : "var(--bad)");
   return (
     <Card
       padded={false}
@@ -173,33 +237,36 @@ function Topology({ vnets, onOpen }: { vnets: VNet[]; onOpen: (v: VNet) => void 
           <Legend color="var(--ok)" label="Connected" />
           <Legend color="var(--warn)" label="Initiated (one side)" dashed />
           <Legend color="var(--bad)" label="Disconnected" />
+          <Legend color="var(--accent)" label="Connected group (AVNM)" dashed />
         </span>
       }
     >
       <div className="overflow-x-auto">
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-[460px] w-full min-w-[760px]" role="img" aria-label="Virtual network topology">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[760px]" style={{ height: Math.min(560, H) }} role="img" aria-label="Virtual network topology">
           <defs>
             <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
               <path d="M 24 0 L 0 0 0 24" fill="none" stroke="var(--border)" strokeWidth="0.5" opacity="0.6" />
             </pattern>
           </defs>
           <rect width={W} height={H} fill="url(#grid)" />
-          {layout.edges.map((e) => {
+          {[...layout.edges].sort((x, y) => (x.state === "ConnectedGroup" ? -1 : 0) - (y.state === "ConnectedGroup" ? -1 : 0)).map((e) => {
             const a = layout.pos.get(e.a)!;
             const b = layout.pos.get(e.b)!;
             return (
               <g key={e.a + e.b}>
-                <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={color(e.state)} strokeWidth={e.state === "Connected" ? 3 : 2} strokeDasharray={e.state === "Initiated" ? "6 5" : undefined} opacity={0.85} />
-                <text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 6} textAnchor="middle" fontSize="10" fill="var(--muted)">
-                  {e.state}
-                </text>
+                <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={color(e.state)} strokeWidth={e.state === "Connected" ? 3 : e.state === "ConnectedGroup" ? 1.5 : 2} strokeDasharray={e.state === "Initiated" ? "6 5" : e.state === "ConnectedGroup" ? "2 5" : undefined} opacity={0.85} />
+                {e.state !== "ConnectedGroup" && (
+                  <text x={(a.x + b.x) / 2 + 6} y={(a.y + b.y) / 2} fontSize="10" fill="var(--muted)">
+                    {e.state}
+                  </text>
+                )}
               </g>
             );
           })}
           {vnets.map((v) => {
             const p = layout.pos.get(lower(v.id));
             if (!p) return null;
-            const isHub = layout.hub === v;
+            const isHub = layout.hubs.includes(v);
             const w = isHub ? 220 : 196;
             const h = 70;
             return (
@@ -271,6 +338,9 @@ function VNetDrawer({ vnet, onClose }: { vnet: VNet | null; onClose: () => void 
                     </div>
                   </div>
                   <Mono>{(s.properties.addressPrefixes ?? [s.properties.addressPrefix ?? ""]).join(", ")}</Mono>
+                  <div className="col-span-2">
+                    <EffectiveRoutes subnetId={s.id} />
+                  </div>
                 </div>
               ))}
               {!vnet.properties.subnets?.length && <div className="px-3 py-4 text-center text-sm text-subtle">No subnets</div>}
@@ -296,5 +366,43 @@ function VNetDrawer({ vnet, onClose }: { vnet: VNet | null; onClose: () => void 
         </div>
       )}
     </Drawer>
+  );
+}
+
+function EffectiveRoutes({ subnetId }: { subnetId: string }) {
+  const [open, setOpen] = useState(false);
+  const r = useSWR(open ? ["eff-routes", subnetId] : null, () => call<{ value: EffRoute[] }>("admin", `/network/routes?subnet=${encodeURIComponent(subnetId)}`));
+  if (!open)
+    return (
+      <button onClick={() => setOpen(true)} className="text-xs font-medium text-accent hover:underline">
+        Show effective routes
+      </button>
+    );
+  if (!r.data) return <Skeleton className="h-16" />;
+  return (
+    <table className="mt-1 w-full text-xs">
+      <thead>
+        <tr className="text-left text-subtle">
+          <th className="py-1 font-medium">Source</th>
+          <th className="py-1 font-medium">State</th>
+          <th className="py-1 font-medium">Prefix</th>
+          <th className="py-1 font-medium">Next hop</th>
+        </tr>
+      </thead>
+      <tbody>
+        {r.data.value.map((x, i) => (
+          <tr key={i} className={cx("border-t border-border", x.state === "Invalid" && "text-subtle line-through")}>
+            <td className="py-1">{x.source}</td>
+            <td className="py-1">{x.state}</td>
+            <td className="py-1 font-mono">{x.addressPrefix}</td>
+            <td className="py-1">
+              {x.nextHopType}
+              {x.nextHopIpAddress ? ` ${x.nextHopIpAddress}` : ""}
+              {x.name ? <span className="text-subtle"> · {x.name}</span> : null}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

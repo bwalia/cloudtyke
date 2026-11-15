@@ -25,4 +25,7 @@ stage direct-peering -var connectivity=direct-peering
 stage hub-firewall   -var connectivity=hub-firewall
 stage no-forwarding  -var connectivity=hub-firewall -var allow_forwarded_traffic=false
 stage nsg            -var connectivity=hub-firewall -var block_https_between_spokes=true
+echo "=== destroy"
+"$BIN" destroy -auto-approve -input=false -no-color -var connectivity=hub-firewall -var block_https_between_spokes=true | grep -E "^Destroy complete"
+trap 'rm -rf -- "${work:?}"' EXIT
 echo "LAB PASSED"

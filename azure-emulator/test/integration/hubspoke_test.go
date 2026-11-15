@@ -131,3 +131,34 @@ func TestHubSpokeRouting(t *testing.T) {
 	}
 	_ = hub
 }
+
+// TestReadOnlyEchoIsIgnored: clients echo computed fields (NSG subnets, subnet
+// ipConfigurations) back on PUT; that must not create references that block deletes.
+func TestReadOnlyEchoIsIgnored(t *testing.T) {
+	e := start(t)
+	arm := e.url("management", "")
+	tok := e.token(bootID, bootSec, arm+"/")
+	const api = "?api-version=2024-05-01"
+	rg := "/subscriptions/" + sandbox + "/resourceGroups/rg-echo"
+	do := func(m, path string, body map[string]any) (int, map[string]any) {
+		code, _, b := e.do(m, arm+path+api, tok, body)
+		return code, b
+	}
+	do("PUT", rg, map[string]any{"location": "uksouth"})
+	vnet := rg + "/providers/Microsoft.Network/virtualNetworks/v"
+	nsg := rg + "/providers/Microsoft.Network/networkSecurityGroups/n"
+	do("PUT", vnet, map[string]any{"location": "uksouth", "properties": map[string]any{"addressSpace": map[string]any{"addressPrefixes": []any{"10.9.0.0/16"}}}})
+	do("PUT", nsg, map[string]any{"location": "uksouth"})
+	do("PUT", vnet+"/subnets/s", map[string]any{"properties": map[string]any{"addressPrefix": "10.9.1.0/24", "networkSecurityGroup": map[string]any{"id": nsg}}})
+	// echo GET bodies back, like a provider update would
+	_, n := do("GET", nsg, nil)
+	do("PUT", nsg, n)
+	_, sn := do("GET", vnet+"/subnets/s", nil)
+	delete(sn["properties"].(map[string]any), "networkSecurityGroup")
+	if code, b := do("PUT", vnet+"/subnets/s", sn); code != 200 {
+		t.Fatalf("dissociate: %d %v", code, b)
+	}
+	if code, b := do("DELETE", nsg, nil); code >= 300 {
+		t.Fatalf("NSG should be deletable once dissociated, got %d %v", code, b)
+	}
+}

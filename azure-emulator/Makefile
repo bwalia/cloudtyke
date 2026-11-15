@@ -9,7 +9,7 @@ EXAMPLES ?= quickstart entra aks-platform landing-zone
 REPORTS ?= reports
 GO_TEST_FLAGS ?= -count=1
 
-.PHONY: help build test test-race test-services test-all selftest lint coverage coverage-check up up-k3s down clean logs reset env shell tf-e2e tf-e2e-terraform aks-k3s-smoke dashboard dashboard-lan dashboard-dev
+.PHONY: help build test test-race test-services test-all selftest lint coverage coverage-check up up-k3s down clean logs reset env shell tf-e2e tf-e2e-terraform aks-k3s-smoke lab-hub-spoke lab-avnm dashboard dashboard-lan dashboard-dev
 
 help: ## show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -105,6 +105,14 @@ tf-e2e: ## run the examples through init/validate/apply/plan(no drift)/destroy w
 tf-e2e-terraform: ## same with HashiCorp Terraform
 	$(COMPOSE) --profile tools build toolbox
 	$(TOOLBOX) ./test/e2e-terraform/run.sh terraform $(EXAMPLES)
+
+lab-hub-spoke: ## grade the hub-and-spoke lab end to end (TOOL=tofu|terraform)
+	$(COMPOSE) --profile tools build toolbox
+	$(TOOLBOX) ./test/labs/hub-spoke.sh $(or $(TOOL),tofu)
+
+lab-avnm: ## grade the Virtual Network Manager lab end to end (TOOL=tofu|terraform)
+	$(COMPOSE) --profile tools build toolbox
+	$(TOOLBOX) ./test/labs/avnm.sh $(or $(TOOL),tofu)
 
 aks-k3s-smoke: ## real k3s AKS cluster + kubectl + workload identity end to end (after make up-k3s)
 	@test -f .k3s-mode || (echo "run make up-k3s first" && exit 1)
