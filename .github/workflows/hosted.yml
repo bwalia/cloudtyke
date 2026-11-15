@@ -1,0 +1,107 @@
+# The hosted sandbox on *.cloudtyke.dev: build the images, roll them out to
+# k3s1 (namespace cloudtyke) and check the public endpoints through the
+# lon1/lon2 edges.
+#
+# Build runs on GitHub-hosted runners and pushes to Docker Hub; deploy runs on
+# the repo's self-hosted runner set inside k3s1 (arc-r-cloudtyke, see
+# azure-emulator/deploy/k8s/ci-setup.sh) with a deployer that can only change
+# namespace cloudtyke.
+name: hosted sandbox (cloudtyke.dev)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "azure-emulator/**"
+      - "dashboard/**"
+      - ".github/workflows/hosted.yml"
+      - "!azure-emulator/docs/**"
+      - "!azure-emulator/**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: hosted-sandbox
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: ${{ vars.HOSTED_DEPLOY != 'false' }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      ready: ${{ steps.creds.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: creds
+        env:
+          U: ${{ secrets.DOCKER_USERNAME }}
+          P: ${{ secrets.DOCKER_PASSWORD }}
+          K: ${{ secrets.KUBE_CONFIG_CLOUDTYKE }}
+        run: |
+          if [ -n "$U" ] && [ -n "$P" ] && [ -n "$K" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"
+          else echo "::warning::DOCKER_USERNAME / DOCKER_PASSWORD / KUBE_CONFIG_CLOUDTYKE not set: skipping the hosted deploy"; fi
+      - id: tag
+        run: echo "tag=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+      - if: steps.creds.outputs.ready == 'true'
+        uses: docker/setup-buildx-action@v3
+      - if: steps.creds.outputs.ready == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - if: steps.creds.outputs.ready == 'true'
+        name: Emulator image
+        uses: docker/build-push-action@v6
+        with:
+          context: azure-emulator
+          platforms: linux/amd64
+          push: true
+          tags: bwalia/cloudtyke-emulator:${{ steps.tag.outputs.tag }}
+          build-args: |
+            VERSION=hosted-${{ steps.tag.outputs.tag }}
+            COMMIT=${{ steps.tag.outputs.tag }}
+      - if: steps.creds.outputs.ready == 'true'
+        name: Dashboard image
+        uses: docker/build-push-action@v6
+        with:
+          context: dashboard
+          platforms: linux/amd64
+          push: true
+          tags: bwalia/cloudtyke-dashboard:${{ steps.tag.outputs.tag }}
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.ready == 'true'
+    runs-on: k3s-linux # the repo's runner set inside k3s1
+    environment:
+      name: hosted
+      url: https://portal.cloudtyke.dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          command -v kubectl >/dev/null || { curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"; sudo install /tmp/kubectl /usr/local/bin/kubectl; }
+          command -v envsubst >/dev/null && command -v jq >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq gettext-base jq >/dev/null; }
+      - name: Roll out
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_CLOUDTYKE }}
+          IMAGE_TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          mkdir -p ~/.kube && printf '%s' "$KUBE_CONFIG" | base64 -d > ~/.kube/config && chmod 600 ~/.kube/config
+          SKIP_BUILD=1 azure-emulator/deploy/k8s/deploy.sh
+      - name: Check the public endpoints
+        run: |
+          set -e
+          for i in $(seq 1 30); do
+            curl -fsS -o /dev/null https://management.cloudtyke.dev/_cloudtyke/health && break; sleep 5
+          done
+          curl -fsS "https://management.cloudtyke.dev/metadata/endpoints?api-version=2022-09-01" | jq -e '.resourceManager == "https://management.cloudtyke.dev/"'
+          curl -fsS -o /dev/null -w "login %{http_code}\n" https://login.cloudtyke.dev/7c10d7e4-0000-4000-8000-000000000001/v2.0/.well-known/openid-configuration
+          test "$(curl -s -o /dev/null -w '%{http_code}' https://management.cloudtyke.dev/_cloudtyke/requests)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' https://portal.cloudtyke.dev/)" = 401
+          {
+            echo "## Hosted sandbox deployed: \`${{ needs.build.outputs.tag }}\`"
+            echo "- https://management.cloudtyke.dev (ARM), https://login.cloudtyke.dev (Entra ID)"
+            echo "- https://portal.cloudtyke.dev (dashboard, password)"
+            echo "- admin API refuses requests without the admin token"
+          } >> "$GITHUB_STEP_SUMMARY"

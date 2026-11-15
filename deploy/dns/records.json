@@ -1,14 +1,131 @@
 {
   "zone": "cloudtyke.dev",
   "records": [
-    { "name": "www", "type": "CNAME", "content": "bwalia.github.io", "comment": "GitHub Pages (website/)" },
-    { "name": "@", "type": "A", "content": "185.199.108.153", "comment": "GitHub Pages apex" },
-    { "name": "@", "type": "A", "content": "185.199.109.153", "comment": "GitHub Pages apex" },
-    { "name": "@", "type": "A", "content": "185.199.110.153", "comment": "GitHub Pages apex" },
-    { "name": "@", "type": "A", "content": "185.199.111.153", "comment": "GitHub Pages apex" },
-    { "name": "@", "type": "AAAA", "content": "2606:50c0:8000::153", "comment": "GitHub Pages apex" },
-    { "name": "@", "type": "AAAA", "content": "2606:50c0:8001::153", "comment": "GitHub Pages apex" },
-    { "name": "@", "type": "AAAA", "content": "2606:50c0:8002::153", "comment": "GitHub Pages apex" },
-    { "name": "@", "type": "AAAA", "content": "2606:50c0:8003::153", "comment": "GitHub Pages apex" }
+    {
+      "name": "www",
+      "type": "CNAME",
+      "content": "bwalia.github.io",
+      "comment": "GitHub Pages (website/)"
+    },
+    {
+      "name": "@",
+      "type": "A",
+      "content": "185.199.108.153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "A",
+      "content": "185.199.109.153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "A",
+      "content": "185.199.110.153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "A",
+      "content": "185.199.111.153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "AAAA",
+      "content": "2606:50c0:8000::153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "AAAA",
+      "content": "2606:50c0:8001::153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "AAAA",
+      "content": "2606:50c0:8002::153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "AAAA",
+      "content": "2606:50c0:8003::153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "management",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: ARM (control plane) via wslproxy lon1/lon2"
+    },
+    {
+      "name": "login",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: Entra ID tokens via wslproxy lon1/lon2"
+    },
+    {
+      "name": "graph",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: Microsoft Graph via wslproxy lon1/lon2"
+    },
+    {
+      "name": "oidc",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: AKS OIDC issuers via wslproxy lon1/lon2"
+    },
+    {
+      "name": "portal",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: CloudTyke dashboard (password) via wslproxy lon1/lon2"
+    },
+    {
+      "name": "data",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: wslproxy on-demand parent for data-plane names via wslproxy lon1/lon2"
+    },
+    {
+      "name": "*.vault",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: Key Vault data plane via wslproxy lon1/lon2"
+    },
+    {
+      "name": "*.blob.storage",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: Blob via wslproxy lon1/lon2"
+    },
+    {
+      "name": "*.file.storage",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: Azure Files via wslproxy lon1/lon2"
+    },
+    {
+      "name": "*.queue.storage",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: Queues via wslproxy lon1/lon2"
+    },
+    {
+      "name": "*.table.storage",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: Tables via wslproxy lon1/lon2"
+    },
+    {
+      "name": "*.azurecr",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: ACR via wslproxy lon1/lon2"
+    }
   ]
 }
