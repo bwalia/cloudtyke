@@ -108,7 +108,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	resources.Register(armSrv)
 	authorization.Register(armSrv)
 	insights.Register(armSrv)
-	aks := registerPhase2(armSrv, aksBackend(cfg, logger))
+	aks, dataPlanes := registerPhase2(armSrv, aksBackend(cfg, logger))
 	aks.CAPEM = bundle.CAPEM
 	authSvc.IssuerJWKS = aks.JWKSForIssuer
 
@@ -123,15 +123,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 
 	reqLog := gateway.NewRequestLog(500)
 	gw := &gateway.Gateway{
-		Cfg:    cfg,
-		ARM:    ch.Middleware(armSrv),
-		Login:  authSvc,
-		Graph:  &graph.Server{Cfg: cfg, Auth: authSvc, Dir: dir},
-		Kube:   aks.KubeAPI,
-		OIDC:   aks.OIDCHandler(),
-		Admin:  &admin.Server{Cfg: cfg, Store: st, Registry: armSrv.Registry, Log: reqLog, Chaos: ch, CAPEM: bundle.CAPEM, Seed: seedFile, WriteMu: &armSrv.WriteMu, SelfTest: selfTest, Network: network.LabHandler(armSrv)},
-		Log:    reqLog,
-		Logger: logger,
+		Cfg:        cfg,
+		ARM:        ch.Middleware(armSrv),
+		Login:      authSvc,
+		Graph:      &graph.Server{Cfg: cfg, Auth: authSvc, Dir: dir},
+		Kube:       aks.KubeAPI,
+		DataPlanes: dataPlanes,
+		OIDC:       aks.OIDCHandler(),
+		Admin:      &admin.Server{Cfg: cfg, Store: st, Registry: armSrv.Registry, Log: reqLog, Chaos: ch, CAPEM: bundle.CAPEM, Seed: seedFile, WriteMu: &armSrv.WriteMu, SelfTest: selfTest, Network: network.LabHandler(armSrv)},
+		Log:        reqLog,
+		Logger:     logger,
 	}
 	return &App{Cfg: cfg, Store: st, PKI: bundle, Signer: signer, Handler: gw, ARM: armSrv, Seed: seedFile}, nil
 }

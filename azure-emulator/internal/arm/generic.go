@@ -24,6 +24,9 @@ func BadRequest(code, msg string) *APIError { return &APIError{Status: 400, Code
 type GenericOptions struct {
 	// Tracked resources require a location and support tags.
 	Tracked bool
+	// KeepLocation keeps an optional location on untracked resources
+	// (policy assignments with a managed identity).
+	KeepLocation bool
 	// Async makes PUT and DELETE answer 201/202 with Azure-AsyncOperation.
 	Async bool
 	// Prepare fills defaults / validates. body is the stored representation
@@ -246,8 +249,10 @@ func Generic(o GenericOptions) Handler {
 						return
 					}
 				}
-			} else {
+			} else if !o.KeepLocation || strOf(body["location"]) == "" {
 				delete(body, "location")
+			} else {
+				body["location"] = NormalizeLocation(strOf(body["location"]))
 			}
 			props, _ := body["properties"].(map[string]any)
 			if props == nil {
