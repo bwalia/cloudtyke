@@ -91,6 +91,18 @@ data:
 YAML
 kubectl -n kube-system rollout restart deploy/coredns >/dev/null
 kubectl create configmap cloudtyke-ca --from-file=ca.pem=/cloudtyke-data/certs/ca.pem --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+# What the IaC tool built, for the page: names and IDs only (tofu show -json
+# also holds secret values, so pick fields instead of passing it through).
+providers=$($TOOL version | sed -n 's#^+ provider [^ ]*/\([^/ ]*\) \(v[^ ]*\)$#\1 \2#p' | jq -R . | jq -sc .)
+$TOOL show -json | jq --arg tool "$TOOL" --arg v "$($TOOL version | head -1)" --argjson p "$providers" --arg at "$(date -u +%FT%TZ)" '
+  {tool: $tool, version: $v, providers: $p, applied_at: $at,
+   resources: [.values.root_module.resources[] | {address, type,
+     name: (if .type == "azurerm_role_assignment" then null else .values.name end),
+     role: .values.role_definition_name, scope: (.values.scope // "" | split("/") | last),
+     principal_id: .values.principal_id, client_id: .values.client_id, object_id: .values.object_id,
+     issuer: .values.issuer, subject: .values.subject, audience: .values.audience}
+     | with_entries(select(.value != null and .value != ""))]}' > /tmp/iac.json
+kubectl create configmap hello-web-iac --from-file=iac.json=/tmp/iac.json --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 kubectl apply -f - >/dev/null <<YAML
 apiVersion: v1
 kind: ServiceAccount
@@ -126,12 +138,15 @@ spec:
           volumeMounts:
             - { name: token, mountPath: /var/run/secrets/azure/tokens, readOnly: true }
             - { name: ca, mountPath: /etc/cloudtyke, readOnly: true }
+            - { name: iac, mountPath: /etc/hello-web, readOnly: true }
       volumes:
         - name: token
           projected:
             sources: [{ serviceAccountToken: { path: azure-identity-token, audience: api://AzureADTokenExchange, expirationSeconds: 3600 } }]
         - name: ca
           configMap: { name: cloudtyke-ca }
+        - name: iac
+          configMap: { name: hello-web-iac, optional: true }
 ---
 apiVersion: v1
 kind: Service

@@ -8,8 +8,22 @@ browser ──► localhost:4740 ──► AKS (k3s) pod ──► Entra ID: ser
                                               └─► Blob storage: read + write visits/count.txt
 ```
 
-16 resources: a resource group, a policy definition and assignment, a Key Vault and its secret, a storage account and
-container, an AKS cluster, a user-assigned identity with a federated credential, and five role assignments.
+15 resources: a resource group, a policy definition and assignment, a Key Vault and its secret, a storage account and
+container, an AKS cluster, a user-assigned identity with a federated credential, four role assignments and a random
+name suffix.
+
+The page itself is the lesson. Below the greeting it shows:
+
+- **The Entra ID workflow** as a sequence diagram (Kubernetes → pod → Entra ID → Key Vault → Blob), with each arrow
+  labelled by this request's real HTTP status and time.
+- **The tokens, decoded**: the Kubernetes service-account token and the Entra access token, plus live checks that
+  their claims match the federated credential and the identity that the role assignments name.
+- **Three different sign-ins**: OpenTofu, kubectl and the app each sign in differently.
+- **Where everything runs**: a diagram of the containers (proxy, k3s node, emulator, DNS, toolbox), and how each
+  emulated service maps to its real Azure endpoint.
+- **What OpenTofu built**: the tool and provider versions, and every resource with its Azure name and purpose.
+  `make hello-web` passes this to the pod as the ConfigMap `hello-web-iac`, built from `tofu show -json` with only
+  names, roles and IDs (no secret values).
 
 ```bash
 cd azure-emulator
