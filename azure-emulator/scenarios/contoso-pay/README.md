@@ -69,6 +69,24 @@ cadence with `SETTLEMENT_INTERVAL_MS` (default two minutes). Stop with
 `docker compose -f scenarios/contoso-pay/apps/docker-compose.yml down` (add `-v` to
 drop the payment data).
 
+### On AKS
+
+The same services also run on the scenario's AKS cluster. Start the emulator in k3s mode, so every AKS
+cluster is a real Kubernetes, then deploy as the platform pipeline does:
+
+```bash
+make up-k3s          # once; a cluster created earlier gets its k3s node on first use
+make contoso-pay     # if not already running
+make contoso-pay-aks
+```
+
+The cluster has local accounts disabled, so the pipeline signs in with an Entra token for the AKS server app (as
+`kubelogin` does), and every request is authorized by Azure RBAC for Kubernetes: the pipeline is
+*RBAC Cluster Admin*, each team is *RBAC Writer* in its own namespaces only. Each workload's service account
+matches its federated credential, so pods exchange a projected service-account token for an Entra token and read
+Key Vault, Blob and Files without any secret. The stand-in PostgreSQL and MongoDB run in a `data` namespace behind
+the server FQDNs (cluster DNS), and spans carry `k8s.cluster.name` and `k8s.namespace.name`.
+
 ## The company
 
 | Team | Cost centre | Owns |
