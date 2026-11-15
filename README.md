@@ -11,8 +11,11 @@ subscription, no bill and no blast radius.
 
 ```bash
 cd azure-emulator
-make up      # start the emulator
-make shell   # toolbox shell with tofu + terraform, already configured
+make up         # start the emulator
+make shell      # toolbox shell with tofu + terraform, already configured
+make dashboard  # web console on http://localhost:4310
 ```
 
-See [azure-emulator/README.md](azure-emulator/README.md) for the full guide, coverage and configuration reference.
+See [azure-emulator/README.md](azure-emulator/README.md) for the full guide, coverage and configuration reference, and
+[dashboard/README.md](dashboard/README.md) for the web console: resources, identity, RBAC, activity, tokens, live
+per-service tests and a guided tour of every service.

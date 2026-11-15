@@ -110,6 +110,10 @@ HTTP call it made, or click **Take the tour** (`?tour=1`) to step through the se
 shows what it proves, the expected and actual result, the extra assertions and the request and response bodies. Add `?service=graph` to filter, or `?format=json` for scripts; the page returns HTTP 417 when
 anything fails, so `curl -f` works in scripts.
 
+**Web console:** `make dashboard` starts a full console on <http://localhost:4310>. It has resources, identity, access
+control, the activity log, tokens and fault injection, plus the same per-service checks and a guided tour with autoplay.
+See [../dashboard/README.md](../dashboard/README.md).
+
 ## Development
 
 ```bash

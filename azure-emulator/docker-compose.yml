@@ -1,6 +1,7 @@
 # CloudTyke Azure emulator.
 #   docker compose up -d            # emulator + DNS sidecar
 #   docker compose run --rm toolbox  # shell with tofu/terraform trusting the CA
+#   docker compose --profile dashboard up -d   # + web console on http://localhost:4310
 name: cloudtyke-azure
 
 x-env: &arm-env
@@ -67,6 +68,30 @@ services:
       - cloudtyke-data:/cloudtyke-data:ro
       - ./:/work
       - plugin-cache:/plugin-cache
+    networks: [cloudtyke]
+
+  dashboard:
+    profiles: ["dashboard"]
+    build: ../dashboard
+    image: ${CLOUDTYKE_DASHBOARD_IMAGE:-cloudtyke/dashboard:dev}
+    restart: unless-stopped
+    user: "65532:65532" # same uid as the emulator, to read its CA from the shared volume
+    depends_on:
+      emulator:
+        condition: service_healthy
+    environment:
+      CLOUDTYKE_URL: https://management.${CLOUDTYKE_DOMAIN:-cloudtyke.local}
+      CLOUDTYKE_DOMAIN: ${CLOUDTYKE_DOMAIN:-cloudtyke.local}
+      CLOUDTYKE_CA_FILE: /cloudtyke-data/certs/ca.pem
+      CLOUDTYKE_ADMIN_TOKEN: ${CLOUDTYKE_ADMIN_TOKEN:-}
+      CLOUDTYKE_DASHBOARD_USER: ${CLOUDTYKE_DASHBOARD_USER:-}
+      CLOUDTYKE_DASHBOARD_PASSWORD: ${CLOUDTYKE_DASHBOARD_PASSWORD:-}
+    ports:
+      # localhost by default: the dashboard acts as the seeded admin identities.
+      # For LAN access use `make dashboard-lan`, which sets a bind address AND requires a password.
+      - "${CLOUDTYKE_DASHBOARD_BIND:-127.0.0.1}:${CLOUDTYKE_DASHBOARD_PORT:-4310}:4310"
+    volumes:
+      - cloudtyke-data:/cloudtyke-data:ro
     networks: [cloudtyke]
 
 networks:
