@@ -144,19 +144,47 @@ kubectl rollout restart deploy/hello-web >/dev/null
 kubectl rollout status deploy/hello-web --timeout=180s
 EOS
 
-echo "==> publishing the app on http://localhost:$PORT"
+BIND=${HELLO_BIND:-127.0.0.1}
 docker rm -f "$PROXY" >/dev/null 2>&1 || true
-docker run -d --name "$PROXY" --restart unless-stopped --network "$NET" -p "127.0.0.1:$PORT:8080" \
-  alpine/socat -d TCP-LISTEN:8080,fork,reuseaddr "TCP:$node:30080" >/dev/null
+CURL=(curl -fsS)
+if [ "$BIND" = "127.0.0.1" ] || [ "$BIND" = "localhost" ]; then
+  echo "==> publishing the app on http://localhost:$PORT"
+  docker run -d --name "$PROXY" --restart unless-stopped --network "$NET" -p "127.0.0.1:$PORT:8080" \
+    alpine/socat -d TCP-LISTEN:8080,fork,reuseaddr "TCP:$node:30080" >/dev/null
+  URL="http://localhost:$PORT"
+else
+  # Reachable from other machines: always behind a password (basic auth via Caddy).
+  CRED="$EMU/reports/.hello-web-lan-credentials" # git-ignored
+  if [ -n "${HELLO_PASSWORD:-}" ]; then pw=$HELLO_PASSWORD
+  elif [ -f "$CRED" ]; then pw=$(sed -n 's/^password=//p' "$CRED")
+  else pw=$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20); fi
+  user=${HELLO_USER:-intern}
+  (umask 077; printf 'user=%s\npassword=%s\n' "$user" "$pw" > "$CRED")
+  hash=$(docker run --rm caddy:2-alpine caddy hash-password --plaintext "$pw")
+  cat > "$EMU/reports/.hello-web-Caddyfile" <<CADDY
+:8080 {
+	basic_auth {
+		$user $hash
+	}
+	reverse_proxy $node:30080
+}
+CADDY
+  echo "==> publishing the app on $BIND:$PORT (password protected)"
+  docker run -d --name "$PROXY" --restart unless-stopped --network "$NET" -p "$BIND:$PORT:8080" \
+    -v "$EMU/reports/.hello-web-Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine >/dev/null
+  CURL=(curl -fsS -u "$user:$pw")
+  host=$BIND; [ "$host" = "0.0.0.0" ] && host=$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
+  URL="http://${host:-localhost}:$PORT"
+fi
 for i in $(seq 1 30); do
-  if body=$(curl -fsS "http://localhost:$PORT/" 2>/dev/null); then
+  if body=$("${CURL[@]}" "http://localhost:$PORT/" 2>/dev/null); then
     echo
-    echo "hello-web is up: http://localhost:$PORT"
+    echo "hello-web is up: $URL"
+    [ "${user:-}" ] && echo "  sign in as $user / $pw  (saved in reports/.hello-web-lan-credentials)"
     grep -o 'viewed <b>[0-9]*</b>' <<<"$body" | sed 's/<[^>]*>//g; s/^/  page /'
     exit 0
   fi
   sleep 2
 done
-echo "the app did not answer on http://localhost:$PORT" >&2
-curl -sS "http://localhost:$PORT/" | sed 's/<[^>]*>/ /g' | tr -s ' ' | head -c 600 >&2
+echo "the app did not answer on $URL" >&2
 exit 1

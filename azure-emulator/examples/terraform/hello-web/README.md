@@ -18,6 +18,16 @@ open http://localhost:4740
 make hello-web-down     # remove it all
 ```
 
+### From other machines on your network
+
+```bash
+HELLO_BIND=0.0.0.0 make hello-web   # http://<your-LAN-IP>:4740, behind a password
+```
+
+LAN mode replaces the localhost forwarder with a Caddy proxy that requires basic auth. The user (`intern`, or
+`HELLO_USER`) and a generated password (or `HELLO_PASSWORD`) are printed and saved in
+`reports/.hello-web-lan-credentials`. Only the app is exposed: the emulator stays on localhost.
+
 ## Where things run
 
 | Piece | Runs where | Why |
@@ -26,7 +36,7 @@ make hello-web-down     # remove it all
 | `tofu` / `terraform` | the **toolbox** container (`docker compose run toolbox`) | it already trusts the emulator's CA and resolves `*.cloudtyke.local`; nothing to install on your machine |
 | AKS cluster | a `rancher/k3s` container per cluster, started by the emulator (`make up-k3s`) | a real Kubernetes API behind the AKS resource |
 | The app | pods in that k3s cluster | like on real AKS |
-| http://localhost:4740 | a tiny `socat` container (`hello-web-proxy`) publishing the app's NodePort on `127.0.0.1` | reachable from your browser, not from your network |
+| http://localhost:4740 | a tiny `socat` container (`hello-web-proxy`) publishing the app's NodePort on `127.0.0.1` (or Caddy with a password in LAN mode) | reachable from your browser; from your network only with `HELLO_BIND` and a password |
 
 You do not need `tofu`, `kubectl` or Node on your machine, only Docker. To run Terraform from your own machine
 instead, see *Using your own host tools* in the [emulator README](../../../README.md): trust the CA, add the host
