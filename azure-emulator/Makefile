@@ -7,7 +7,7 @@ EXAMPLES ?= quickstart entra
 REPORTS ?= reports
 GO_TEST_FLAGS ?= -count=1
 
-.PHONY: help build test test-race test-services test-all selftest lint coverage coverage-check up down clean logs reset env shell tf-e2e tf-e2e-terraform
+.PHONY: help build test test-race test-services test-all selftest lint coverage coverage-check up down clean logs reset env shell tf-e2e tf-e2e-terraform dashboard dashboard-lan dashboard-dev
 
 help: ## show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -61,10 +61,22 @@ up: ## start emulator + DNS sidecar and export certs/ca.pem
 	@mkdir -p certs && $(COMPOSE) cp emulator:/data/certs/ca.pem certs/ca.pem && echo "CA exported to certs/ca.pem"
 
 down: ## stop containers (state volume is kept)
-	$(COMPOSE) --profile tools down
+	$(COMPOSE) --profile tools --profile dashboard down
 
 clean: ## stop containers and delete the state volume
-	$(COMPOSE) --profile tools down -v
+	$(COMPOSE) --profile tools --profile dashboard down -v
+
+dashboard: ## start the emulator + web console on http://localhost:4310 (Docker)
+	$(COMPOSE) --profile dashboard up -d --build --wait
+	@echo "CloudTyke console: http://localhost:$${CLOUDTYKE_DASHBOARD_PORT:-4310}"
+
+dashboard-lan: ## like dashboard, reachable from your LAN; needs CLOUDTYKE_DASHBOARD_PASSWORD
+	@test -n "$$CLOUDTYKE_DASHBOARD_PASSWORD" || (echo "Set CLOUDTYKE_DASHBOARD_PASSWORD first, e.g. CLOUDTYKE_DASHBOARD_PASSWORD=pick-something make dashboard-lan" && exit 1)
+	CLOUDTYKE_DASHBOARD_BIND=0.0.0.0 $(COMPOSE) --profile dashboard up -d --build --wait
+	@echo "CloudTyke console: http://$$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | cut -d' ' -f1):$${CLOUDTYKE_DASHBOARD_PORT:-4310} (any user name + your password)"
+
+dashboard-dev: ## run the web console from source with hot reload (needs make up and Node 20+)
+	cd ../dashboard && npm install && npm run dev
 
 logs: ## follow emulator logs
 	$(COMPOSE) logs -f emulator
