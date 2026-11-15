@@ -19,3 +19,5 @@ make dashboard  # web console on http://localhost:4310
 See [azure-emulator/README.md](azure-emulator/README.md) for the full guide, coverage and configuration reference, and
 [dashboard/README.md](dashboard/README.md) for the web console: resources, identity, RBAC, activity, tokens, live
 per-service tests and a guided tour of every service.
+
+New to landing zones? [CloudTyke Arena](landing-zone-stadium/README.md) teaches them with an interactive stadium (Azure, AWS and GCP).

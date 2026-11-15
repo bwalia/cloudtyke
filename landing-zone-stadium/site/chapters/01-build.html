@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1. Build the stadium · CloudTyke Arena</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-root=".." data-chapter="1">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <div id="chapter-head"></div>
+
+  <section class="split" aria-label="The build puzzle">
+    <div>
+      <div class="drawing"><svg id="stadium" class="stadium" role="group" aria-label="The stadium being built. Outlines show where pieces go."></svg></div>
+      <p class="small muted">Drag a piece onto the glowing outline, or tap a piece (or press Enter on it) to place it there.</p>
+    </div>
+    <div class="stack">
+      <div class="card stack" id="puzzle">
+        <div>
+          <p class="eyebrow" id="count"></p>
+          <div class="progress" aria-hidden="true"><i id="bar" style="width:0"></i></div>
+        </div>
+        <p class="riddle" id="riddle" aria-live="polite"></p>
+        <div class="fb" id="fb" aria-live="polite"></div>
+        <div>
+          <h2 class="eyebrow" style="margin:0 0 6px">Pieces</h2>
+          <div class="tray" id="tray" role="list" aria-label="Pieces to place"></div>
+        </div>
+        <button type="button" class="btn ghost small" id="restart">Start the build again</button>
+      </div>
+      <div class="card">
+        <h3>The hierarchy fills in as you build</h3>
+        <div id="tree"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="after" hidden aria-labelledby="after-h">
+    <h2 id="after-h">The stadium is built. Now host some events.</h2>
+    <div class="card stack">
+      <p>Switch the event. Watch what changes. Padlocks mark parts that are never rebuilt.</p>
+      <div class="row" role="radiogroup" aria-label="Tonight's event" id="events"></div>
+      <div id="report" aria-live="polite"></div>
+    </div>
+    <h2>Test your stadium</h2>
+    <div class="card stack">
+      <div class="row">
+        <button type="button" class="btn" id="t-fan">Send a fan in</button>
+        <button type="button" class="btn" id="t-side">Try a side door</button>
+        <button type="button" class="btn" id="t-safe">Open the safe</button>
+      </div>
+      <div id="test-out" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="quiz" style="margin-top:28px"></section>
+  <div id="chapter-foot"></div>
+</main>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/stadium.js"></script>
+<script src="../js/ch01-build.js"></script>
+</body>
+</html>

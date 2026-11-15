@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>5. The control room · CloudTyke Arena</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-root=".." data-chapter="5">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <div id="chapter-head"></div>
+
+  <section class="split" aria-label="The control room">
+    <div class="drawing"><svg id="ctrl" class="scene" viewBox="0 0 680 380" role="group" aria-label="The control room. Cameras feed the video desk, which sends each feed to the right screen."></svg></div>
+    <div class="card stack">
+      <h2 style="margin-top:0">One standard fitting</h2>
+      <p>Every event plugs its cameras in with the same standard fitting: <strong>OpenTelemetry</strong>. The video desk (the <strong>Collector</strong>) sends each feed to the right screen. So a new event is watched from minute one.</p>
+      <p>The control room is <strong>never rebuilt</strong>, and the tapes stay after the event leaves.</p>
+      <p class="small muted">Hover or tap every part of the drawing.</p>
+    </div>
+  </section>
+
+  <h2>Step 1. Follow one fan on CCTV</h2>
+  <section class="split" aria-label="Trace puzzle">
+    <div class="card">
+      <p>Fan #4521 waited a long time to get in. This is the trace: one bar per step, from gate to seat. Click the slow turnstile.</p>
+      <svg id="trace" class="scene" viewBox="0 0 640 230" role="group" aria-label="Trace waterfall for fan 4521"></svg>
+    </div>
+    <div class="card"><div id="trace-fb" aria-live="polite"><p class="muted">Click (or Tab to and press Enter on) a bar.</p></div></div>
+  </section>
+
+  <h2>Step 2. Pick the right screen</h2>
+  <section class="card stack" id="signals" aria-label="Pick the right signal"></section>
+
+  <h2>Step 3. Tune the stewards' radios</h2>
+  <section class="split" aria-label="Alert threshold">
+    <div class="card">
+      <svg id="alert" class="scene" viewBox="0 0 640 220" role="img" aria-label="Queue length at gate 3 over 24 minutes, with the alert line"></svg>
+      <label for="thr" class="row">Alert when the gate 3 queue is above <strong id="thr-v"></strong> fans</label>
+      <input type="range" id="thr" min="20" max="220" step="5" value="40" style="width:100%">
+    </div>
+    <div class="card"><div id="alert-fb" aria-live="polite"></div></div>
+  </section>
+
+  <section id="quiz" style="margin-top:28px"></section>
+  <div id="chapter-foot"></div>
+</main>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/ch05-control.js"></script>
+</body>
+</html>

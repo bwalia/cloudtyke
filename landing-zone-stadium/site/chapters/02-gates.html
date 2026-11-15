@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2. Gates, walkways and doors · CloudTyke Arena</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-root=".." data-chapter="2">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <div id="chapter-head"></div>
+
+  <h2>Step 1. Follow a fan</h2>
+  <section class="split" aria-label="Follow a fan">
+    <div class="drawing"><svg id="stadium" class="stadium" role="group" aria-label="The stadium. A dot shows one fan walking in."></svg></div>
+    <div class="card stack">
+      <p>One fan walks from the road to a seat. Each step has a cloud meaning.</p>
+      <div class="row">
+        <button type="button" class="btn primary" id="fan-go">Follow a fan</button>
+        <button type="button" class="btn" id="fan-next">Step by step</button>
+      </div>
+      <ol class="steps-list" id="fan-steps"></ol>
+      <p class="fb small" id="fan-detail" aria-live="polite"></p>
+    </div>
+  </section>
+
+  <h2>Step 2. Fix the broken walkways</h2>
+  <section class="split" aria-label="Hub and spoke puzzle">
+    <div class="drawing"><svg id="hub" class="scene" viewBox="0 0 640 400" role="group" aria-label="Hub and spoke network. Broken parts are red and dashed."></svg></div>
+    <div class="card stack">
+      <p>A Derby fan wants the Summer scoreboard. Three things are broken. Click each red, dashed part to fix it. Then send the fan.</p>
+      <div class="row">
+        <button type="button" class="btn primary" id="hub-test">Send a fan: Derby → Summer</button>
+        <button type="button" class="btn" id="hub-direct">Add a direct walkway Derby ↔ Summer</button>
+        <button type="button" class="btn ghost" id="hub-reset">Break it again</button>
+      </div>
+      <div id="hub-out" class="fb" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <h2>Step 3. Write the door rules</h2>
+  <section class="split" aria-label="Door rules puzzle">
+    <div class="card stack">
+      <p id="rules-intro"></p>
+      <div class="table-wrap"><table id="rules" aria-describedby="rules-intro"></table></div>
+      <label class="row small"><input type="checkbox" id="stateless"> Make the door stateless (like an AWS network ACL)</label>
+      <div id="outbound" hidden>
+        <h3>Outbound rules</h3>
+        <label class="row small"><input type="checkbox" id="out-eph"> Allow out to ports 1024-65535 (replies to fans)</label>
+      </div>
+    </div>
+    <div class="card stack">
+      <button type="button" class="btn primary" id="rules-test">Test the door</button>
+      <div id="rules-out" aria-live="polite"></div>
+      <div class="note small" id="cloud-rules-note"></div>
+    </div>
+  </section>
+
+  <section id="quiz" style="margin-top:28px"></section>
+  <div id="chapter-foot"></div>
+</main>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/stadium.js"></script>
+<script src="../js/ch02-gates.js"></script>
+</body>
+</html>

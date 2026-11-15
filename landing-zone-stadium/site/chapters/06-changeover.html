@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>6. The pitch and the changeover · CloudTyke Arena</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-root=".." data-chapter="6">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <div id="chapter-head"></div>
+
+  <h2>Step 1. Change the event</h2>
+  <section class="split" aria-label="Event switch">
+    <div>
+      <div class="drawing"><svg id="stadium" class="stadium" role="group" aria-label="The stadium with tonight's event on the pitch"></svg></div>
+    </div>
+    <div class="stack">
+      <div class="card stack">
+        <h3>Tonight's event</h3>
+        <div class="row" role="radiogroup" aria-label="Tonight's event" id="events"></div>
+        <h3>How is the show built?</h3>
+        <div class="row" role="radiogroup" aria-label="How is the show built" id="builds"></div>
+        <div class="meters">
+          <div class="meter green"><b id="m-rebuilt">0</b><span>parts rebuilt tonight</span></div>
+          <div class="meter"><b id="m-kept">15</b><span>parts kept</span></div>
+          <div class="meter"><b id="m-swaps">0</b><span>changeovers so far</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>The storage shelf beside the pitch</h3>
+        <svg id="shelf" class="scene" viewBox="0 0 420 210" role="group" aria-label="Storage shelf: vault, script library, lock-ups and score book"></svg>
+      </div>
+    </div>
+  </section>
+  <div id="report" class="card" style="margin-top:14px" aria-live="polite"><p class="muted">Switch the event to see what changes.</p></div>
+
+  <h2>Step 2. What Terraform sees</h2>
+  <section class="split even" aria-label="Terraform view">
+    <div><pre id="tf" aria-label="variables.tf for this event"></pre></div>
+    <div><pre id="plan" aria-label="Plan summary"></pre><p class="small muted">The runnable version is in <code>landing-zone-stadium/terraform/</code>. <code>verify.sh</code> checks that a kit swap only touches that event's pitch.</p></div>
+  </section>
+
+  <h2>Step 3. Build tonight's kit</h2>
+  <section class="card stack" aria-label="Kit puzzle">
+    <p id="brief"></p>
+    <div class="split even">
+      <fieldset class="kitset"><legend>How is the show built?</legend>
+        <label><input type="radio" name="k-comp" value="vm"> Native app on VMs (a set built by hand)</label>
+        <label><input type="radio" name="k-comp" value="docker"> One Docker container (a flat-pack piece)</label>
+        <label><input type="radio" name="k-comp" value="k8s"> Kubernetes (the floor manager and many crews)</label>
+      </fieldset>
+      <fieldset class="kitset"><legend>How does it scale?</legend>
+        <label><input type="radio" name="k-scale" value="steady"> Small and steady</label>
+        <label><input type="radio" name="k-scale" value="big"> Big autoscaling pool (min 3, max 30)</label>
+        <label><input type="radio" name="k-scale" value="auto"> Autoscaling pool for one rush</label>
+      </fieldset>
+      <fieldset class="kitset"><legend>What storage?</legend>
+        <label><input type="checkbox" name="k-st" value="object"> Object storage (the vault)</label>
+        <label><input type="checkbox" name="k-st" value="db"> A database (the score book)</label>
+        <label><input type="checkbox" name="k-st" value="files"> A file share (the script library)</label>
+      </fieldset>
+      <fieldset class="kitset"><legend>How long do we keep the media?</legend>
+        <label><input type="radio" name="k-life" value="short"> A short time (highlight clips)</label>
+        <label><input type="radio" name="k-life" value="tiers"> Hot, then cool, then archive, for years</label>
+        <label><input type="radio" name="k-life" value="d30"> Delete after 30 days</label>
+      </fieldset>
+    </div>
+    <div class="row"><button type="button" class="btn primary" id="kit-check">Check my kit</button></div>
+    <div id="kit-fb" aria-live="polite"></div>
+  </section>
+
+  <h2>Step 4. The final whistle</h2>
+  <section class="card stack" aria-label="Stateless and stateful">
+    <p>The event ends. What goes, and what must stay?</p>
+    <div class="row">
+      <button type="button" class="btn" id="end">Blow the final whistle</button>
+      <button type="button" class="btn" id="book">Book a new event at the box office</button>
+    </div>
+    <div id="end-fb" aria-live="polite"></div>
+  </section>
+
+  <section id="quiz" style="margin-top:28px"></section>
+  <div id="chapter-foot"></div>
+</main>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/stadium.js"></script>
+<script src="../js/ch06-changeover.js"></script>
+</body>
+</html>

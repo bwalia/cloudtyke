@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>9. Your own event · CloudTyke Arena</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-root=".." data-chapter="9">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <div id="chapter-head"></div>
+
+  <section class="card stack" aria-labelledby="brief-h">
+    <h2 id="brief-h" style="margin-top:0">The brief</h2>
+    <label class="row">Pick a brief: <select id="brief-pick" aria-label="Pick a brief"></select></label>
+    <p class="lead" id="brief"></p>
+    <p class="small muted">The stadium is already built. You only design the pitch. Then the box office and the crew do the rest.</p>
+  </section>
+
+  <h2>Design the event</h2>
+  <form id="design" class="split even" novalidate>
+    <div class="stack">
+      <fieldset class="kitset"><legend>Name and place</legend>
+        <label>Event key (lowercase letters and numbers, up to 10) <input type="text" id="f-key" value="marathon" autocomplete="off" style="min-height:40px"></label>
+        <label>Region <select id="f-region"><option value="uksouth">UK South</option><option value="ukwest">UK West</option><option value="eastus">East US</option><option value="westeurope">West Europe</option></select></label>
+        <label><input type="checkbox" id="f-zones"> Spread across availability zones</label>
+      </fieldset>
+      <fieldset class="kitset"><legend>How is the show built?</legend>
+        <label><input type="radio" name="f-comp" value="vm"> Native app on VMs</label>
+        <label><input type="radio" name="f-comp" value="docker"> Docker container</label>
+        <label><input type="radio" name="f-comp" value="k8s" checked> Kubernetes</label>
+        <label>Smallest pool <input type="number" id="f-min" min="1" max="50" value="1" style="width:5em;min-height:40px"></label>
+        <label>Biggest pool <input type="number" id="f-max" min="1" max="50" value="3" style="width:5em;min-height:40px"></label>
+      </fieldset>
+    </div>
+    <div class="stack">
+      <fieldset class="kitset"><legend>Storage</legend>
+        <label><input type="checkbox" name="f-st" value="object"> Object storage</label>
+        <label><input type="checkbox" name="f-st" value="db"> A database</label>
+        <label>Keep media <select id="f-life"><option value="short">a short time</option><option value="tiers">hot, then cool, then archive</option><option value="d30">delete after 30 days</option><option value="forever">for ever, all hot</option></select></label>
+      </fieldset>
+      <fieldset class="kitset"><legend>Safety and watching</legend>
+        <label><input type="checkbox" id="f-pip"> Give the app its own public IP</label>
+        <label><input type="checkbox" id="f-tags" checked> Tag it: event, event-kit, cost-centre</label>
+        <label>Database password <select id="f-secret"><option value="config">in the settings file</option><option value="vault">in the vault, read with a managed identity</option></select></label>
+        <label><input type="checkbox" id="f-otel"> Plug in the OpenTelemetry fitting</label>
+      </fieldset>
+      <button type="submit" class="btn primary">Get it checked</button>
+    </div>
+  </form>
+  <section class="split even" style="margin-top:14px" aria-label="Results">
+    <div id="checks" aria-live="polite"></div>
+    <div><pre id="snippet" hidden></pre></div>
+  </section>
+
+  <section id="final" style="margin-top:28px"></section>
+  <section id="quiz" style="margin-top:28px"></section>
+  <div id="chapter-foot"></div>
+</main>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/ch09-event.js"></script>
+</body>
+</html>

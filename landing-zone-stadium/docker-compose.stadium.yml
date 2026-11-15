@@ -1,0 +1,21 @@
+# CloudTyke Arena: compose override for the emulator in ../azure-emulator.
+#
+# Use it together with the main file, from inside azure-emulator/:
+#   docker compose -f docker-compose.yml -f ../landing-zone-stadium/docker-compose.stadium.yml up -d --wait
+# scripts/up.sh does this for you.
+#
+# Paths in an override file are relative to the project folder, which is the
+# folder of the FIRST -f file (azure-emulator/). That is why they start with ../
+services:
+  emulator:
+    environment:
+      CLOUDTYKE_SEED_FILE: /stadium/seed.yaml
+    volumes:
+      - ../landing-zone-stadium/seed.yaml:/stadium/seed.yaml:ro
+
+  toolbox:
+    environment:
+      # The default provider builds events in sub-events.
+      ARM_SUBSCRIPTION_ID: 5b5c0000-0000-4000-8000-000000000004
+    volumes:
+      - ../landing-zone-stadium:/stadium
