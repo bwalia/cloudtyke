@@ -59,13 +59,13 @@ func TestVirtualNetworkManager(t *testing.T) {
 	if code, b := post(nm+"/commit", map[string]any{"targetLocations": []any{"uksouth"}, "configurationIds": []any{cc}, "commitType": "Connectivity"}); code != 202 {
 		t.Fatalf("commit: %d %v", code, b)
 	}
-	trace("10.1.1.4", "10.0.1.4", "443", "Delivered")  // ANM peering to the hub
-	trace("10.1.1.4", "10.2.1.4", "443", "Delivered")  // connected group in the region
+	trace("10.1.1.4", "10.0.1.4", "443", "Delivered") // ANM peering to the hub
+	trace("10.1.1.4", "10.2.1.4", "443", "Delivered") // connected group in the region
 	nsg := rg + "/providers/Microsoft.Network/networkSecurityGroups/nsg-s1"
 	put(nsg, map[string]any{"location": "uksouth"})
 	put(s1+"/subnets/snet", map[string]any{"properties": map[string]any{"addressPrefix": "10.1.1.0/24", "networkSecurityGroup": map[string]any{"id": nsg}}})
 	trace("10.1.1.4", "10.2.1.4", "443", "Delivered") // default AllowVnetOutBound covers the connected group
-	trace("10.1.1.4", "10.101.1.4", "443", "Dropped")  // westeurope not deployed
+	trace("10.1.1.4", "10.101.1.4", "443", "Dropped") // westeurope not deployed
 	trace("10.101.1.4", "10.0.1.4", "443", "Dropped")
 
 	code, st := post(nm+"/listDeploymentStatus", map[string]any{})
