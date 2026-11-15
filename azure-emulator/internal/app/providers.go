@@ -1,0 +1,43 @@
+package app
+
+import (
+	"log/slog"
+
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/arm"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/config"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/containerservice"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/managedidentity"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/monitoring"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/network"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/registry"
+)
+
+// registerPhase2 wires the networking, identity, monitoring, registry and
+// AKS resource providers and returns the AKS RP (nil backend = API stub).
+func registerPhase2(s *arm.Server, backend ...containerservice.Backend) *containerservice.RP {
+	network.Register(s)
+	managedidentity.Register(s)
+	monitoring.Register(s)
+	registry.Register(s)
+	var b containerservice.Backend = containerservice.StubBackend{}
+	if len(backend) > 0 && backend[0] != nil {
+		b = backend[0]
+	}
+	return containerservice.Register(s, b)
+}
+
+// aksBackend picks what answers kubectl for AKS clusters:
+// CLOUDTYKE_AKS_BACKEND=k3s runs a k3s container per cluster (needs the
+// Docker socket), anything else uses the built-in API stub.
+func aksBackend(cfg config.Config, logger *slog.Logger) containerservice.Backend {
+	if cfg.AKSBackend == "k3s" {
+		b, err := containerservice.NewK3sBackend(cfg, logger)
+		if err != nil {
+			logger.Error("AKS k3s backend unavailable, falling back to the API stub", "err", err)
+			return nil
+		}
+		logger.Info("AKS backend: k3s (one container per cluster)")
+		return b
+	}
+	return nil
+}

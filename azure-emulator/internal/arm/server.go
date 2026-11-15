@@ -52,6 +52,7 @@ type Server struct {
 	// Hooks run before the handler for mutating requests (policy, locks,
 	// chaos). Returning false aborts the request (the hook wrote a response).
 	PreWrite []func(*Request) bool
+	cleanup  map[string]func(map[string]any)
 }
 
 var apiVersionRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}(-[a-zA-Z0-9.]+)?$`)

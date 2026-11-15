@@ -23,6 +23,7 @@ type Config struct {
 	PageSize          int           // max items per list page before nextLink
 	ExtraHosts        []string      // extra SANs for the server certificate
 	DocsURL           string        // coverage matrix link in 501 errors
+	AKSBackend        string        // what answers kubectl: "stub" (default) or "k3s"
 }
 
 // FromEnv reads the configuration from the environment.
@@ -38,6 +39,7 @@ func FromEnv() Config {
 		StrictAPIVersions: envBool("CLOUDTYKE_STRICT_API_VERSIONS", false),
 		AsyncDelay:        envDuration("CLOUDTYKE_ASYNC_DELAY", 0),
 		PageSize:          envInt("CLOUDTYKE_PAGE_SIZE", 100),
+		AKSBackend:        strings.ToLower(env("CLOUDTYKE_AKS_BACKEND", "stub")),
 		DocsURL:           env("CLOUDTYKE_DOCS_URL", "https://github.com/bwalia/cloudtyke/blob/main/azure-emulator/docs/coverage.md"),
 	}
 	if v := os.Getenv("CLOUDTYKE_EXTRA_HOSTS"); v != "" {

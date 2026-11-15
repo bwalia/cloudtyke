@@ -20,11 +20,15 @@ import (
 
 // Gateway routes requests by host name.
 type Gateway struct {
-	Cfg    config.Config
-	ARM    http.Handler
-	Login  http.Handler
-	Graph  http.Handler
-	Admin  http.Handler
+	Cfg   config.Config
+	ARM   http.Handler
+	Login http.Handler
+	Graph http.Handler
+	Admin http.Handler
+	// Kube returns the Kubernetes API of the AKS cluster whose fqdn is host.
+	Kube func(host string) (http.Handler, bool)
+	// OIDC serves AKS OIDC issuer documents on oidc.<domain>.
+	OIDC   http.Handler
 	Log    *RequestLog
 	Logger *slog.Logger
 }
@@ -72,6 +76,13 @@ func (g *Gateway) dispatch(w http.ResponseWriter, r *http.Request, host string) 
 		return "metadata"
 	}
 	cfg := g.Cfg
+	// kubectl --server https://localhost --tls-server-name <cluster fqdn>
+	if g.Kube != nil && r.TLS != nil && r.TLS.ServerName != "" && !strings.EqualFold(r.TLS.ServerName, host) {
+		if h, ok := g.Kube(strings.ToLower(r.TLS.ServerName)); ok {
+			h.ServeHTTP(w, r)
+			return "aks"
+		}
+	}
 	switch {
 	case host == cfg.Host(config.SubLogin):
 		g.Login.ServeHTTP(w, r)
@@ -79,6 +90,16 @@ func (g *Gateway) dispatch(w http.ResponseWriter, r *http.Request, host string) 
 	case host == cfg.Host(config.SubGraph):
 		g.Graph.ServeHTTP(w, r)
 		return "graph"
+	case host == cfg.Host(config.SubOIDC) && g.OIDC != nil:
+		g.OIDC.ServeHTTP(w, r)
+		return "oidc"
+	case strings.HasSuffix(host, "."+cfg.Domain) && g.Kube != nil && !strings.HasPrefix(host, "management."):
+		if h, ok := g.Kube(host); ok {
+			h.ServeHTTP(w, r)
+			return "aks"
+		}
+		g.ARM.ServeHTTP(w, r)
+		return "arm"
 	case strings.HasSuffix(host, "."+cfg.Host(config.SubVault)),
 		strings.HasSuffix(host, "."+cfg.Host(config.SubStorage)),
 		strings.HasSuffix(host, "."+cfg.Host(config.SubACR)):

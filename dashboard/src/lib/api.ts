@@ -7,6 +7,8 @@ export const API = {
   resources: "2024-11-01",
   auth: "2022-04-01",
   activity: "2015-04-01",
+  network: "2024-05-01",
+  aks: "2025-02-01",
 } as const;
 
 export type Target = "arm" | "graph" | "admin" | "login";

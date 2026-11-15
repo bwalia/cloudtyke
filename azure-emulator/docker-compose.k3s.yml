@@ -1,0 +1,16 @@
+# AKS with real Kubernetes: every emulated AKS cluster gets its own k3s
+# container, and kubeconfigs from az aks get-credentials / Terraform drive it.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.k3s.yml up -d    (or: make up-k3s)
+#
+# The emulator gets the Docker socket to start and stop those containers.
+# That is root-equivalent access to this machine: use it on a dev box only.
+services:
+  emulator:
+    user: "0:0"
+    environment:
+      CLOUDTYKE_AKS_BACKEND: k3s
+      CLOUDTYKE_DOCKER_NETWORK: ${COMPOSE_PROJECT_NAME:-cloudtyke-azure}_cloudtyke
+      CLOUDTYKE_K3S_IMAGE: ${CLOUDTYKE_K3S_IMAGE:-rancher/k3s:v1.33.5-k3s1}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

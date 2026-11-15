@@ -7,3 +7,4 @@ certs/
 **/*.tfplan
 *.db
 reports/
+.k3s-mode

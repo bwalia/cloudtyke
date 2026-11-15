@@ -5,6 +5,7 @@ package resources
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
 	"sort"
@@ -550,4 +551,26 @@ func matchTag(m map[string]any, name, value string) bool {
 		}
 	}
 	return false
+}
+
+// PutManagedResourceGroup creates (or returns) a resource group owned by
+// another resource, such as an AKS node resource group (MC_...).
+func PutManagedResourceGroup(s *arm.Server, sub, name, location, managedBy string, tags map[string]any) (string, error) {
+	var existing map[string]any
+	if ok, err := store.GetJSON(s.Store, store.BucketARM, rgKey(sub, name), &existing); err == nil && ok {
+		if mb := strOf(existing["managedBy"]); mb != "" && !strings.EqualFold(mb, managedBy) {
+			return "", fmt.Errorf("resource group %s is already managed by %s", name, mb)
+		}
+		if mb := strOf(existing["managedBy"]); mb == "" {
+			return "", fmt.Errorf("resource group %s already exists and is not managed by this resource", name)
+		}
+		return strOf(existing["id"]), nil
+	}
+	id := "/subscriptions/" + sub + "/resourceGroups/" + name
+	body := map[string]any{"id": id, "name": name, "type": "Microsoft.Resources/resourceGroups", "location": location,
+		"managedBy": managedBy, "properties": map[string]any{"provisioningState": "Succeeded"}}
+	if len(tags) > 0 {
+		body["tags"] = tags
+	}
+	return id, store.PutJSON(s.Store, store.BucketARM, rgKey(sub, name), body)
 }

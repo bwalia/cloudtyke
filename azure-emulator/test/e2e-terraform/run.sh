@@ -9,7 +9,7 @@ shift
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 EXAMPLES=("$@")
 if [ ${#EXAMPLES[@]} -eq 0 ]; then
-  EXAMPLES=(quickstart entra)
+  EXAMPLES=(quickstart entra aks-platform landing-zone)
 fi
 
 fail=0

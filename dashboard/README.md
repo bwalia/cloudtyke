@@ -39,6 +39,8 @@ exposed; the emulator itself stays on localhost. Use it on trusted networks only
 | **Services** | every coverage-matrix row with its end-to-end check: each HTTP call, expected vs actual status, assertions, request/response bodies, re-run |
 | **Guided tour** | one service per slide with autoplay (`space`), arrow keys and full screen (`f`), made for demos and interviews |
 | **Resources** | subscriptions → resource groups tree; create (real `PUT`, request preview), edit tags (`PATCH`), async delete with polling; IAM, activity and generated Terraform `import` blocks per group |
+| **Network** | every VNet across subscriptions drawn as a live hub-and-spoke topology (peerings are green only when both sides exist), subnets with NSG / route table / AKS usage, peering details |
+| **Kubernetes** | AKS clusters with node pools, networking, identities and add-ons; stop / start, upgrade (one minor at a time), admin kubeconfig download, and live `kubectl get nodes` through the cluster's own credential |
 | **Identity** | users, groups (members / owners / nesting), app registrations (client secrets that really authenticate, federated credentials), enterprise apps (Graph app-role grants), directory roles, deleted items (restore / purge), organization |
 | **Access control** | role assignments at any scope with inheritance, add / remove assignments, built-in and custom roles, and *Check my access*, which shows effective permissions |
 | **Activity** | the Azure Activity Log in plain English, plus a live, filterable stream of every HTTP request the emulator serves |
