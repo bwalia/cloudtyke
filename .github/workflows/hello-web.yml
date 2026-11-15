@@ -1,0 +1,128 @@
+# A deployment pipeline against CloudTyke instead of a real Azure subscription.
+#
+#   plan -> apply -> verify the app -> change the greeting -> verify the change
+#        -> try a change the guardrail policy forbids (must be denied) -> destroy
+#
+# Run it from the Actions tab ("Run workflow"), or on a pull request that
+# touches the hello-web example. The run summary shows the plan, every
+# result and the policy denial exactly as Azure words it.
+name: hello-web pipeline (OpenTofu against CloudTyke)
+
+on:
+  workflow_dispatch:
+    inputs:
+      greeting:
+        description: "New greeting to roll out (stored in Key Vault)"
+        default: "Deployed by GitHub Actions"
+        required: true
+      tool:
+        description: "IaC tool"
+        type: choice
+        options: [tofu, terraform]
+        default: tofu
+  pull_request:
+    paths:
+      - "azure-emulator/examples/terraform/hello-web/**"
+      - ".github/workflows/hello-web.yml"
+
+defaults:
+  run:
+    working-directory: azure-emulator
+
+env:
+  TOOL: ${{ inputs.tool || 'tofu' }}
+  CLOUDTYKE_EPHEMERAL: "true"
+  TB: docker compose -f docker-compose.yml -f docker-compose.k3s.yml run --rm -T -w /work/examples/terraform/hello-web -e TOOL
+
+jobs:
+  deploy:
+    name: plan, apply, change, guardrail, destroy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start CloudTyke (AKS clusters run on k3s)
+        run: |
+          # each k3s node needs many inotify instances (the default is 128)
+          sudo sysctl -w fs.inotify.max_user_instances=1024 fs.inotify.max_user_watches=1048576
+          make up-k3s
+          docker compose -f docker-compose.yml -f docker-compose.k3s.yml --profile tools build toolbox
+
+      - name: Plan
+        run: |
+          $TB toolbox sh -c '$TOOL init -input=false -no-color >/dev/null && $TOOL plan -input=false -no-color' | tee /tmp/plan.txt
+          {
+            echo "## 1. Plan"
+            echo "$(grep -E '^Plan:' /tmp/plan.txt)"
+            echo
+            echo "<details><summary>Full plan</summary>"
+            echo
+            echo '```'
+            cat /tmp/plan.txt
+            echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply and deploy the app to AKS
+        run: make hello-web
+
+      - name: Verify the app
+        run: |
+          page=$(curl -fsS http://localhost:4740/)
+          greeting=$(sed -n 's/.*<p class="big">\([^<]*\)<.*/\1/p' <<<"$page")
+          echo "greeting: $greeting"
+          grep -q "Hello from CloudTyke" <<<"$page"
+          {
+            echo "## 2. Apply and verify"
+            echo "- App answered on http://localhost:4740 with: **$greeting**"
+            echo "- Request path: workload identity → Entra token → Key Vault secret → Blob counter"
+            echo
+            echo "| Step | HTTP | ms |"
+            echo "|---|---|---|"
+            grep -o '<tr><td>[^<]*</td><td class="[a-z]*">[0-9]*</td><td>[0-9]*</td></tr>' <<<"$page" \
+              | sed -E 's#<tr><td>([^<]*)</td><td class="[a-z]*">([0-9]*)</td><td>([0-9]*)</td></tr>#| \1 | \2 | \3 |#'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Roll out a change (new greeting in Key Vault)
+        env:
+          TF_VAR_greeting: ${{ inputs.greeting || 'Deployed by GitHub Actions' }} (run ${{ github.run_number }})
+        run: |
+          $TB -e TF_VAR_greeting toolbox sh -c '$TOOL apply -auto-approve -input=false -no-color' | tee /tmp/change.txt | grep -E '^(  #|Apply complete)'
+          page=$(curl -fsS http://localhost:4740/)
+          grep -qF "$TF_VAR_greeting" <<<"$page"
+          {
+            echo "## 3. Change"
+            echo "- \`$TOOL apply\` with \`greeting = \"$TF_VAR_greeting\"\`: $(grep -E '^Apply complete' /tmp/change.txt)"
+            echo "- The running app shows it on the next request, no redeploy: **$TF_VAR_greeting**"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardrail - a forbidden change is denied by Azure Policy
+        run: |
+          set +e
+          $TB -e TF_VAR_allow_public_blob=true toolbox sh -c '$TOOL apply -auto-approve -input=false -no-color' > /tmp/deny.txt 2>&1
+          rc=$?
+          set -e
+          grep -A3 'RequestDisallowedByPolicy' /tmp/deny.txt | head -8
+          if [ $rc -eq 0 ] || ! grep -q RequestDisallowedByPolicy /tmp/deny.txt; then
+            echo "expected the policy to deny allow_public_blob = true"; exit 1
+          fi
+          {
+            echo "## 4. Guardrail"
+            echo "Setting \`allow_public_blob = true\` was **denied** by the resource group's policy assignment:"
+            echo
+            echo '```'
+            grep -o 'RequestDisallowedByPolicy[^"]*' /tmp/deny.txt | head -1 | cut -c1-400
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Destroy
+        if: always()
+        run: |
+          make hello-web-down || true
+          echo "## 5. Destroy" >> "$GITHUB_STEP_SUMMARY"
+          echo "Everything removed with \`$TOOL destroy\`." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Diagnostics
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.k3s.yml logs emulator | tail -150

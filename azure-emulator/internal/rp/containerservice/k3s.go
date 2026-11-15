@@ -195,7 +195,7 @@ func (b *K3sBackend) run(st *k3sCluster, cluster map[string]any, issuer string) 
 		}
 		time.Sleep(2 * time.Second)
 	}
-	return errors.New("timed out waiting for the k3s API server")
+	return errors.New("timed out waiting for the k3s API server" + b.diagnose(st.name))
 }
 
 // transport builds an mTLS transport from the container's admin kubeconfig.
@@ -335,4 +335,21 @@ func (b *K3sBackend) call(method, path string, body any, _ any) (map[string]any,
 		_ = json.Unmarshal(raw, &m)
 	}
 	return m, nil
+}
+
+// diagnose explains well-known k3s start failures from the container's log.
+func (b *K3sBackend) diagnose(name string) string {
+	logs, err := b.callRaw("GET", "/containers/"+name+"/logs?stdout=1&stderr=1&tail=300", nil)
+	if err != nil {
+		return ""
+	}
+	switch s := string(logs); {
+	case strings.Contains(s, "too many open files"):
+		return ": the Docker host ran out of inotify instances (\"too many open files\"). Each k3s node needs many; " +
+			"raise the limit, e.g. on Docker Desktop: docker run --rm --privileged --pid=host alpine nsenter -t 1 -m -u -n -i " +
+			"sysctl -w fs.inotify.max_user_instances=1024 fs.inotify.max_user_watches=1048576"
+	case strings.Contains(s, "no space left on device"):
+		return ": the Docker host is out of disk space"
+	}
+	return ""
 }
