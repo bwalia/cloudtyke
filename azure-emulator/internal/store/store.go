@@ -24,9 +24,11 @@ const (
 	BucketActivity = "activity" // activity log events
 	BucketMeta     = "meta"     // emulator metadata (seeded marker, mg parents, ...)
 	BucketRoleDefs = "roledefs" // custom role definitions keyed by guid
+	BucketPolicy   = "policy"   // policy compliance states keyed by "<assignment>|<resource>"
+	BucketData     = "data"     // data planes: Key Vault secrets, blobs, files
 )
 
-var allBuckets = []string{BucketARM, BucketGraph, BucketOps, BucketActivity, BucketMeta, BucketRoleDefs}
+var allBuckets = []string{BucketARM, BucketGraph, BucketOps, BucketActivity, BucketMeta, BucketRoleDefs, BucketPolicy, BucketData}
 
 // Store is implemented by the bbolt-backed store and the in-memory store.
 type Store interface {

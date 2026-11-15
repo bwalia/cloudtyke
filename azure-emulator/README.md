@@ -57,6 +57,10 @@ cd examples/terraform/quickstart && terraform init && terraform apply
 | Managed identities | user-assigned and system-assigned identities backed by real service principals; federated credentials that the token service honours |
 | Log Analytics, ACR | workspaces (customer id, retention, shared keys); registries (SKU rules, global names, admin credentials, geo-replication) |
 | **AKS** | managed clusters and node pools, version catalogue and one-minor upgrades, `MC_*` node resource group with kubelet / add-on identities, outbound IP, NSG, route table, kubenet / Azure CNI / overlay / BYO subnet, `ServiceCidrOverlapExistingSubnetsCidr` and UDR checks, AAD + Azure RBAC, OIDC issuer + workload identity, Container insights, credentials, stop/start; **`kubectl` works** (built-in API, or a real k3s per cluster) |
+| **Azure Policy** | definitions (tenant, management group, subscription), initiatives, assignments with parameters, non-compliance messages and managed identities, exemptions (waiver / mitigated, expiry, per-reference), `DoNotEnforce`; **Deny, Audit, Modify, Append and DenyAction evaluated on every write and delete** (`RequestDisallowedByPolicy`); aliases with `[*]`, template functions such as `resourceGroup().tags`; Policy Insights `queryResults` / `summarize` / `triggerEvaluation`; read-only management groups |
+| **Key Vault** | vaults (global names, soft delete, recover, purge protection, access policies or RBAC) and the **secrets data plane** (versions, soft delete, recover, purge) with Azure's `ForbiddenByRbac` / `AccessDenied` answers |
+| **Storage** | accounts (name, SKU and kind rules, HTTPS / TLS / public access / shared-key settings, keys), containers, file shares, queues, tables, lifecycle policies; **Blob and Azure Files data planes** with Entra OAuth and RBAC data actions |
+| **Databases** | PostgreSQL flexible servers (versions, SKUs, storage, HA, private access through a delegated subnet and private DNS zone, Entra administrators, databases, firewall rules, parameters) and Cosmos DB (NoSQL and MongoDB APIs, consistency, regions, serverless, keys and connection strings, databases, containers / collections, throughput) as control plane |
 | Platform | activity log, async operations, paging, ETags, structured logs, request ring buffer, snapshots, reset, chaos (429/5xx/latency/slow LROs) |
 
 ### Examples (each runs apply → no-drift plan → destroy in CI, with OpenTofu and Terraform)
@@ -67,6 +71,20 @@ cd examples/terraform/quickstart && terraform init && terraform apply
 | [`entra`](examples/terraform/entra) | users, groups, applications, service principals, secrets, app role grants |
 | [`aks-platform`](examples/terraform/aks-platform) | VNet + NSG, Log Analytics, ACR, user-assigned identities, an AKS cluster (Azure CNI overlay, Cilium, Azure RBAC, Container insights, Key Vault CSI, workload identity), a user node pool, AcrPull for the kubelet identity, a federated credential for a service account |
 | [`landing-zone`](examples/terraform/landing-zone) | a Cloud Adoption Framework-style platform across **three subscriptions**: central Log Analytics; a hub VNet with firewall / gateway / bastion subnets, public IPs, private DNS zones and a shared Premium ACR; two application landing zones (corp and online) with spoke VNets peered both ways, NSGs, forced-tunnel route tables, DNS links; six people in role-based Entra groups; group-based RBAC; GitHub OIDC deployment identities; and an AKS cluster in the corp spoke with `userDefinedRouting` egress (100 resources) |
+
+### Scenario: Contoso Pay, a payments company on Azure
+
+[`scenarios/contoso-pay`](scenarios/contoso-pay) is a whole fictional payment service provider: seven teams, 30
+people, PCI-DSS guardrails in Azure Policy (with a time-boxed exemption and delete protection for production data),
+a hub-and-spoke network, a private AKS cluster, Key Vault, Blob, Azure Files, PostgreSQL and Cosmos DB. On top of it
+run **live apps**: a merchant storefront, the payment gateway, a risk engine, a processor console, a settlement batch
+and a traffic generator, all reading their secrets from Key Vault, writing receipts to Blob and settlement files to
+Azure Files, and **traced with OpenTelemetry** into Jaeger, Prometheus, Loki and Grafana.
+
+```bash
+make contoso-pay          # deploy the estate, start the apps and the observability stack
+make contoso-pay-smoke    # checkout -> Key Vault -> Blob -> Files -> traces, metrics, logs
+```
 
 ### Labs
 
@@ -93,6 +111,11 @@ tofu output -raw kube_admin_config > ~/.kube/config && kubectl get nodes
 ```
 
 On your host, add `--server https://localhost --tls-server-name <cluster fqdn>` (the emulator routes by TLS server name).
+
+Clusters with **local accounts disabled** accept Entra tokens for the AKS server application
+(`6dae42f8-4368-4678-94ff-3960e28e3630`, what `kubelogin` requests): members of the cluster's admin groups are cluster
+admins, and with Azure RBAC for Kubernetes every request is checked against data actions such as
+`Microsoft.ContainerService/managedClusters/apps/deployments/write` at the cluster or namespace scope.
 
 By default a built-in, read-only Kubernetes API answers: nodes match the node pools (count, VM size, zones, labels,
 taints), plus the system namespaces and add-on pods. For a **real cluster per AKS resource**, start with `make up-k3s`:

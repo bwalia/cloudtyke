@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Northwind Airways · Book a flight</title>
+<style>
+  :root { --navy:#0b2545; --sky:#13315c; --accent:#e4572e; --ink:#1d2433; --muted:#6b7280; --line:#e5e7eb; --ok:#15803d; --bad:#b91c1c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--ink); background:#f4f6fa; }
+  header { background:linear-gradient(120deg,var(--navy),var(--sky)); color:#fff; padding:18px 32px; display:flex; align-items:center; gap:14px; }
+  header .logo { font-weight:800; letter-spacing:.5px; font-size:20px; }
+  header .tag { opacity:.75; font-size:13px; }
+  header .demo { margin-left:auto; font-size:12px; background:rgba(255,255,255,.12); padding:4px 10px; border-radius:99px; }
+  main { max-width:1100px; margin:24px auto; padding:0 20px; display:grid; grid-template-columns:1.4fr 1fr; gap:24px; }
+  h2 { font-size:16px; margin:0 0 12px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px; }
+  .flight { display:grid; grid-template-columns:90px 1fr auto; gap:12px; align-items:center; padding:12px; border:1px solid var(--line); border-radius:10px; margin-bottom:10px; cursor:pointer; }
+  .flight:hover, .flight.sel { border-color:var(--sky); box-shadow:0 0 0 2px #13315c22; }
+  .flight .code { font-weight:700; color:var(--sky); }
+  .flight .route { font-size:14px; } .flight .times { color:var(--muted); font-size:13px; }
+  .flight .from { font-weight:700; text-align:right; } .flight .from small { display:block; font-weight:400; color:var(--muted); font-size:12px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input, select { width:100%; padding:9px 10px; border:1px solid #cbd5e1; border-radius:8px; font:inherit; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .cabins { display:flex; gap:6px; } .cabins button { flex:1; padding:8px; border:1px solid #cbd5e1; background:#fff; border-radius:8px; cursor:pointer; font:inherit; }
+  .cabins button.sel { background:var(--sky); color:#fff; border-color:var(--sky); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; } .chips span { font-size:11px; padding:3px 8px; border-radius:99px; background:#eef2ff; cursor:pointer; }
+  .chips span.bad { background:#fee2e2; } .chips span.risk { background:#fef3c7; }
+  .total { display:flex; justify-content:space-between; font-size:18px; font-weight:700; margin:16px 0 10px; }
+  .pay { width:100%; padding:12px; border:0; border-radius:10px; background:var(--accent); color:#fff; font-weight:700; font-size:15px; cursor:pointer; }
+  .pay:disabled { opacity:.6; cursor:wait; }
+  .result { margin-top:14px; padding:14px; border-radius:10px; font-size:14px; display:none; }
+  .result.ok { display:block; background:#ecfdf5; border:1px solid #a7f3d0; } .result.bad { display:block; background:#fef2f2; border:1px solid #fecaca; }
+  .result code { font-size:12px; } .result a { color:var(--sky); }
+  .secure { font-size:12px; color:var(--muted); margin-top:8px; text-align:center; }
+  pre { background:#0f172a; color:#e2e8f0; padding:10px; border-radius:8px; font-size:12px; overflow:auto; max-height:260px; }
+  footer { text-align:center; color:var(--muted); font-size:12px; margin:30px 0; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">✈ NORTHWIND AIRWAYS</div><div class="tag">Fly further, for less</div>
+  <div class="demo">Fictional demo merchant · payments by Contoso Pay</div>
+</header>
+<main>
+  <section class="card">
+    <h2>Choose your flight · Fri 20 Nov 2026</h2>
+    <div id="flights"></div>
+  </section>
+  <section class="card">
+    <h2>Passenger and payment</h2>
+    <label>Cabin</label>
+    <div class="cabins" id="cabins"></div>
+    <div class="row">
+      <div><label>Lead passenger</label><input id="name" value="Amelia Hart"></div>
+      <div><label>Passengers</label><select id="pax"><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+    </div>
+    <label>Email</label><input id="email" value="amelia.hart@example.com">
+    <label>Card number</label><input id="card" value="4242 4242 4242 4242" inputmode="numeric">
+    <div class="chips" id="chips"></div>
+    <div class="row">
+      <div><label>Expiry</label><input id="exp" value="12/29"></div>
+      <div><label>CVC</label><input id="cvc" value="123"></div>
+    </div>
+    <label>Booking from (simulated IP country)</label>
+    <select id="ip"><option value="GB">United Kingdom</option><option value="US">United States</option><option value="FR">France</option><option value="NG">Nigeria</option></select>
+    <div class="total"><span>Total</span><span id="total">–</span></div>
+    <button class="pay" id="pay">Pay and book</button>
+    <div class="secure">🔒 Card details are sent to Contoso Pay and tokenised. Test card numbers only.</div>
+    <div class="result" id="result"></div>
+  </section>
+</main>
+<footer>Northwind Airways, Contoso Pay and every name, flight and payment here are invented for a CloudTyke demo.</footer>
+<script>
+const CARDS = [
+  ['4242 4242 4242 4242','Visa ✓',''],['5555 5555 5555 4444','Mastercard ✓',''],['3782 822463 10005','Amex ✓',''],
+  ['4000 0000 0000 0002','Declined','bad'],['4000 0000 0000 9995','No funds','bad'],['4000 0000 0000 0069','Expired','bad'],
+  ['4100 0000 0000 0019','High-risk BIN','risk'],
+];
+let flights = [], sel = null, cabin = 'Economy';
+const gbp = (m) => '£' + (m/100).toLocaleString('en-GB',{minimumFractionDigits:2});
+const $ = (id) => document.getElementById(id);
+function render() {
+  $('flights').innerHTML = flights.map((f,i) => `<div class="flight ${sel===i?'sel':''}" data-i="${i}">
+    <div class="code">${f.code}</div>
+    <div><div class="route">${f.from} → ${f.to}</div><div class="times">${f.depart} – ${f.arrive} · direct</div></div>
+    <div class="from">${gbp(f.fares[cabin])}<small>${cabin.toLowerCase()} from</small></div></div>`).join('');
+  document.querySelectorAll('.flight').forEach(el => el.onclick = () => { sel = +el.dataset.i; render(); });
+  $('cabins').innerHTML = ['Economy','Premium','Business'].map(c => `<button class="${c===cabin?'sel':''}">${c}</button>`).join('');
+  document.querySelectorAll('#cabins button').forEach(b => b.onclick = () => { cabin = b.textContent; render(); });
+  const pax = +$('pax').value;
+  $('total').textContent = sel===null ? '–' : gbp((flights[sel].fares[cabin] + 2400) * pax);
+}
+$('pax').onchange = render;
+$('chips').innerHTML = CARDS.map(([n,l,c]) => `<span class="${c}" data-n="${n}">${l}</span>`).join('');
+document.querySelectorAll('#chips span').forEach(s => s.onclick = () => { $('card').value = s.dataset.n; $('cvc').value = s.dataset.n.startsWith('37') ? '1234' : '123'; });
+$('pay').onclick = async () => {
+  if (sel === null) { alert('Choose a flight first'); return; }
+  $('pay').disabled = true; $('pay').textContent = 'Authorising…';
+  const r = await fetch('/api/checkout', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+    flight: flights[sel].code, cabin, passengers: +$('pax').value, ipCountry: $('ip').value,
+    passenger: { name: $('name').value, email: $('email').value },
+    card: { number: $('card').value.replace(/\s/g,''), expiry: $('exp').value, cvc: $('cvc').value } }) });
+  const out = await r.json();
+  $('pay').disabled = false; $('pay').textContent = 'Pay and book';
+  const p = out.payment || {};
+  const box = $('result');
+  if (out.outcome === 'confirmed') {
+    box.className = 'result ok';
+    box.innerHTML = `<b>Booking ${out.booking} confirmed.</b> ${gbp(out.amount)} charged to ${p.card?.brand} •••• ${p.card?.last4}.<br>
+      Payment <code>${p.id}</code> · auth code ${p.auth_code} · risk score ${p.risk?.score} (${p.risk?.decision})<br>
+      <a href="#" id="rcpt">View receipt (from Azure Blob Storage)</a><div id="rbody"></div>`;
+    $('rcpt').onclick = async (e) => { e.preventDefault(); const t = await (await fetch('/api/receipt/' + p.id)).text(); $('rbody').innerHTML = '<pre>' + t.replace(/</g,'&lt;') + '</pre>'; };
+  } else {
+    box.className = 'result bad';
+    box.innerHTML = `<b>Payment declined</b> (${p.decline_reason || p.error || 'error'}). No booking was made.<br>Payment <code>${p.id || '-'}</code> · risk score ${p.risk?.score ?? '-'}`;
+  }
+};
+fetch('/api/flights').then(r => r.json()).then(f => { flights = f; sel = 0; render(); });
+</script>
+</body>
+</html>

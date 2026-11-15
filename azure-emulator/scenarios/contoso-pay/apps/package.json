@@ -1,0 +1,25 @@
+{
+  "name": "contoso-pay-demo-apps",
+  "private": true,
+  "description": "Fictional Contoso Pay services: Northwind Airways storefront, payment gateway, risk engine, processor console, traffic generator, settlement batch.",
+  "license": "Apache-2.0",
+  "type": "commonjs",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node --require ./src/otel.js ./src/main.js"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.10.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.83.1",
+    "@opentelemetry/exporter-logs-otlp-proto": "^0.301.2",
+    "@opentelemetry/exporter-metrics-otlp-proto": "^0.301.2",
+    "@opentelemetry/exporter-trace-otlp-proto": "^0.301.2",
+    "@opentelemetry/sdk-logs": "^3.1.1",
+    "@opentelemetry/sdk-metrics": "^3.1.1",
+    "@opentelemetry/sdk-node": "^0.301.2",
+    "express": "^5.3.0",
+    "mongodb": "^7.9.0",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0"
+  }
+}

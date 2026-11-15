@@ -27,6 +27,9 @@ type Gateway struct {
 	Admin http.Handler
 	// Kube returns the Kubernetes API of the AKS cluster whose fqdn is host.
 	Kube func(host string) (http.Handler, bool)
+	// DataPlanes serve data-plane hosts by suffix, e.g. ".vault.<domain>"
+	// -> Key Vault, ".blob.storage.<domain>" -> Blob storage.
+	DataPlanes map[string]http.Handler
 	// OIDC serves AKS OIDC issuer documents on oidc.<domain>.
 	OIDC   http.Handler
 	Log    *RequestLog
@@ -90,6 +93,9 @@ func (g *Gateway) dispatch(w http.ResponseWriter, r *http.Request, host string) 
 	case host == cfg.Host(config.SubGraph):
 		g.Graph.ServeHTTP(w, r)
 		return "graph"
+	case g.dataPlane(host) != nil:
+		g.dataPlane(host).ServeHTTP(w, r)
+		return "dataplane"
 	case host == cfg.Host(config.SubOIDC) && g.OIDC != nil:
 		g.OIDC.ServeHTTP(w, r)
 		return "oidc"
@@ -112,6 +118,15 @@ func (g *Gateway) dispatch(w http.ResponseWriter, r *http.Request, host string) 
 		g.ARM.ServeHTTP(w, r)
 		return "arm"
 	}
+}
+
+func (g *Gateway) dataPlane(host string) http.Handler {
+	for suffix, h := range g.DataPlanes {
+		if strings.HasSuffix(host, suffix) {
+			return h
+		}
+	}
+	return nil
 }
 
 // Metadata returns the cloud metadata document consumed by go-azure-sdk

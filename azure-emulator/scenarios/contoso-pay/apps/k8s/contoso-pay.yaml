@@ -1,0 +1,127 @@
+# Contoso Pay on AKS. Rendered by scripts/deploy-aks.sh (${VAR} substitution).
+#
+# Each team runs in its own namespace, and each workload's service account
+# matches the federated credential Terraform created for it
+# (system:serviceaccount:<namespace>:<name>). The pod exchanges its projected
+# service-account token for an Entra token (workload identity), then reads
+# Key Vault, Blob and Files as that identity. On real AKS the workload identity
+# webhook adds the same token volume and variables when it sees the
+# azure.workload.identity/use label; they are spelled out here so the pods also run
+# on clusters without the webhook (the emulator's k3s backend).
+---
+apiVersion: v1
+kind: Namespace
+metadata: { name: payments, labels: { team: payments-core, pci-scope: cde } }
+---
+apiVersion: v1
+kind: Namespace
+metadata: { name: risk, labels: { team: risk-and-fraud, pci-scope: cde } }
+---
+apiVersion: v1
+kind: Namespace
+metadata: { name: merchant, labels: { team: merchant-experience } }
+---
+apiVersion: v1
+kind: Namespace
+metadata: { name: storefront, labels: { team: merchant-experience } }
+---
+apiVersion: v1
+kind: Namespace
+metadata: { name: settlement, labels: { team: data-and-settlement, pci-scope: cde } }
+---
+apiVersion: v1
+kind: Namespace
+metadata: { name: data, labels: { purpose: managed-service-standins } }
+# ------------------------------------------------------------ service accounts (workload identity)
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payment-gateway
+  namespace: payments
+  annotations: { azure.workload.identity/client-id: "${GATEWAY_CLIENT_ID}" }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: risk-engine
+  namespace: risk
+  annotations: { azure.workload.identity/client-id: "${RISK_CLIENT_ID}" }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: merchant-portal
+  namespace: merchant
+  annotations: { azure.workload.identity/client-id: "${PORTAL_CLIENT_ID}" }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: northwind-storefront
+  namespace: storefront
+  annotations: { azure.workload.identity/client-id: "${STOREFRONT_CLIENT_ID}" }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: settlement-batch
+  namespace: settlement
+  annotations: { azure.workload.identity/client-id: "${SETTLEMENT_CLIENT_ID}" }
+# ------------------------------------------------------------ data store stand-ins
+---
+apiVersion: v1
+kind: Secret
+metadata: { name: standin-credentials, namespace: data }
+stringData:
+  PG_PASSWORD: "${PG_PASSWORD}"
+  COSMOS_ACCOUNT: "${COSMOS_ACCOUNT}"
+  COSMOS_KEY: "${COSMOS_KEY}"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: postgres, namespace: data }
+spec:
+  selector: { matchLabels: { app: postgres } }
+  template:
+    metadata: { labels: { app: postgres } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          env:
+            - { name: POSTGRES_USER, value: cpayadmin }
+            - { name: POSTGRES_DB, value: payments }
+            - { name: POSTGRES_PASSWORD, valueFrom: { secretKeyRef: { name: standin-credentials, key: PG_PASSWORD } } }
+          ports: [{ containerPort: 5432 }]
+          resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { memory: 384Mi } }
+          readinessProbe: { exec: { command: ["pg_isready", "-U", "cpayadmin", "-d", "payments"] }, periodSeconds: 3 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: postgres, namespace: data }
+spec: { selector: { app: postgres }, ports: [{ port: 5432 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: mongo, namespace: data }
+spec:
+  selector: { matchLabels: { app: mongo } }
+  template:
+    metadata: { labels: { app: mongo } }
+    spec:
+      containers:
+        - name: mongo
+          image: mongo:8.0
+          # mongod sizes its cache from the node's RAM unless told otherwise
+          args: ["--port", "10255", "--quiet", "--wiredTigerCacheSizeGB", "0.25"]
+          resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { memory: 768Mi } }
+          env:
+            - { name: MONGO_INITDB_ROOT_USERNAME, valueFrom: { secretKeyRef: { name: standin-credentials, key: COSMOS_ACCOUNT } } }
+            - { name: MONGO_INITDB_ROOT_PASSWORD, valueFrom: { secretKeyRef: { name: standin-credentials, key: COSMOS_KEY } } }
+          ports: [{ containerPort: 10255 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: mongo, namespace: data }
+spec: { selector: { app: mongo }, ports: [{ port: 10255 }] }

@@ -1,0 +1,343 @@
+# Contoso Pay workloads. Rendered by scripts/deploy-aks.sh (${VAR} substitution).
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-gateway
+  namespace: payments
+  labels: { app: payment-gateway, team: payments-core }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: payment-gateway } }
+  template:
+    metadata:
+      labels: { app: payment-gateway, team: payments-core, azure.workload.identity/use: "true" }
+    spec:
+      serviceAccountName: payment-gateway
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: app
+          image: ${APP_IMAGE}
+          imagePullPolicy: IfNotPresent
+          envFrom: [{ configMapRef: { name: cpay-config } }]
+          env:
+            - { name: SERVICE, value: "gateway" }
+            - { name: PORT, value: "8080" }
+            - { name: OTEL_SERVICE_NAME, value: "payment-gateway" }
+            - { name: OTEL_RESOURCE_ATTRIBUTES, value: "service.namespace=contoso-pay,service.version=1.42.0,deployment.environment.name=prod,team=payments-core,k8s.namespace.name=payments,k8s.cluster.name=${AKS_CLUSTER},cloud.region=uksouth" }
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://otel-collector.cpay.internal:4318" }
+            - { name: NODE_EXTRA_CA_CERTS, value: "/etc/cloudtyke/ca.pem" }
+            - { name: AZURE_CLIENT_ID, value: "${GATEWAY_CLIENT_ID}" }
+            - { name: AZURE_TENANT_ID, value: "${AZURE_TENANT_ID}" }
+            - { name: AZURE_FEDERATED_TOKEN_FILE, value: "/var/run/secrets/azure/tokens/azure-identity-token" }
+            - { name: AZURE_AUTHORITY_HOST, value: "https://login.${CLOUDTYKE_DOMAIN}" }
+            - { name: GATEWAY_URL, value: "http://payment-gateway.payments.svc.cluster.local:8080" }
+            - { name: RISK_URL, value: "http://risk-engine.risk.svc.cluster.local:8080" }
+            - { name: STOREFRONT_URL, value: "http://northwind-storefront.storefront.svc.cluster.local:8080" }
+            - { name: PGSSL_DISABLE, value: "true" }
+            - { name: MONGO_LOCAL_STANDIN, value: "true" }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: azure-identity-token, mountPath: /var/run/secrets/azure/tokens, readOnly: true }
+            - { name: cloudtyke-ca, mountPath: /etc/cloudtyke, readOnly: true }
+          ports: [{ name: http, containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 5 }
+      volumes:
+        - name: azure-identity-token
+          projected:
+            sources:
+              - serviceAccountToken: { path: azure-identity-token, audience: api://AzureADTokenExchange, expirationSeconds: 3600 }
+        - name: cloudtyke-ca
+          configMap: { name: cloudtyke-ca }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: payment-gateway, namespace: payments }
+spec:
+  selector: { app: payment-gateway }
+  ports: [{ name: http, port: 8080, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: risk-engine
+  namespace: risk
+  labels: { app: risk-engine, team: risk-and-fraud }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: risk-engine } }
+  template:
+    metadata:
+      labels: { app: risk-engine, team: risk-and-fraud, azure.workload.identity/use: "true" }
+    spec:
+      serviceAccountName: risk-engine
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: app
+          image: ${APP_IMAGE}
+          imagePullPolicy: IfNotPresent
+          envFrom: [{ configMapRef: { name: cpay-config } }]
+          env:
+            - { name: SERVICE, value: "risk-engine" }
+            - { name: PORT, value: "8080" }
+            - { name: OTEL_SERVICE_NAME, value: "risk-engine" }
+            - { name: OTEL_RESOURCE_ATTRIBUTES, value: "service.namespace=contoso-pay,service.version=0.18.3,deployment.environment.name=prod,team=risk-and-fraud,k8s.namespace.name=risk,k8s.cluster.name=${AKS_CLUSTER},cloud.region=uksouth" }
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://otel-collector.cpay.internal:4318" }
+            - { name: NODE_EXTRA_CA_CERTS, value: "/etc/cloudtyke/ca.pem" }
+            - { name: AZURE_CLIENT_ID, value: "${RISK_CLIENT_ID}" }
+            - { name: AZURE_TENANT_ID, value: "${AZURE_TENANT_ID}" }
+            - { name: AZURE_FEDERATED_TOKEN_FILE, value: "/var/run/secrets/azure/tokens/azure-identity-token" }
+            - { name: AZURE_AUTHORITY_HOST, value: "https://login.${CLOUDTYKE_DOMAIN}" }
+            - { name: GATEWAY_URL, value: "http://payment-gateway.payments.svc.cluster.local:8080" }
+            - { name: RISK_URL, value: "http://risk-engine.risk.svc.cluster.local:8080" }
+            - { name: STOREFRONT_URL, value: "http://northwind-storefront.storefront.svc.cluster.local:8080" }
+            - { name: PGSSL_DISABLE, value: "true" }
+            - { name: MONGO_LOCAL_STANDIN, value: "true" }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: azure-identity-token, mountPath: /var/run/secrets/azure/tokens, readOnly: true }
+            - { name: cloudtyke-ca, mountPath: /etc/cloudtyke, readOnly: true }
+          ports: [{ name: http, containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 5 }
+      volumes:
+        - name: azure-identity-token
+          projected:
+            sources:
+              - serviceAccountToken: { path: azure-identity-token, audience: api://AzureADTokenExchange, expirationSeconds: 3600 }
+        - name: cloudtyke-ca
+          configMap: { name: cloudtyke-ca }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: risk-engine, namespace: risk }
+spec:
+  selector: { app: risk-engine }
+  ports: [{ name: http, port: 8080, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: northwind-storefront
+  namespace: storefront
+  labels: { app: northwind-storefront, team: merchant-experience }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: northwind-storefront } }
+  template:
+    metadata:
+      labels: { app: northwind-storefront, team: merchant-experience, azure.workload.identity/use: "true" }
+    spec:
+      serviceAccountName: northwind-storefront
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: app
+          image: ${APP_IMAGE}
+          imagePullPolicy: IfNotPresent
+          envFrom: [{ configMapRef: { name: cpay-config } }]
+          env:
+            - { name: SERVICE, value: "storefront" }
+            - { name: PORT, value: "8080" }
+            - { name: OTEL_SERVICE_NAME, value: "northwind-storefront" }
+            - { name: OTEL_RESOURCE_ATTRIBUTES, value: "service.namespace=northwind-airways,service.version=3.7.1,deployment.environment.name=prod,team=merchant-experience,k8s.namespace.name=storefront,k8s.cluster.name=${AKS_CLUSTER},cloud.region=uksouth" }
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://otel-collector.cpay.internal:4318" }
+            - { name: NODE_EXTRA_CA_CERTS, value: "/etc/cloudtyke/ca.pem" }
+            - { name: AZURE_CLIENT_ID, value: "${STOREFRONT_CLIENT_ID}" }
+            - { name: AZURE_TENANT_ID, value: "${AZURE_TENANT_ID}" }
+            - { name: AZURE_FEDERATED_TOKEN_FILE, value: "/var/run/secrets/azure/tokens/azure-identity-token" }
+            - { name: AZURE_AUTHORITY_HOST, value: "https://login.${CLOUDTYKE_DOMAIN}" }
+            - { name: GATEWAY_URL, value: "http://payment-gateway.payments.svc.cluster.local:8080" }
+            - { name: RISK_URL, value: "http://risk-engine.risk.svc.cluster.local:8080" }
+            - { name: STOREFRONT_URL, value: "http://northwind-storefront.storefront.svc.cluster.local:8080" }
+            - { name: PGSSL_DISABLE, value: "true" }
+            - { name: MONGO_LOCAL_STANDIN, value: "true" }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: azure-identity-token, mountPath: /var/run/secrets/azure/tokens, readOnly: true }
+            - { name: cloudtyke-ca, mountPath: /etc/cloudtyke, readOnly: true }
+          ports: [{ name: http, containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 5 }
+      volumes:
+        - name: azure-identity-token
+          projected:
+            sources:
+              - serviceAccountToken: { path: azure-identity-token, audience: api://AzureADTokenExchange, expirationSeconds: 3600 }
+        - name: cloudtyke-ca
+          configMap: { name: cloudtyke-ca }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: northwind-storefront, namespace: storefront }
+spec:
+  selector: { app: northwind-storefront }
+  ports: [{ name: http, port: 8080, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: processor-portal
+  namespace: merchant
+  labels: { app: processor-portal, team: merchant-experience }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: processor-portal } }
+  template:
+    metadata:
+      labels: { app: processor-portal, team: merchant-experience, azure.workload.identity/use: "true" }
+    spec:
+      serviceAccountName: merchant-portal
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: app
+          image: ${APP_IMAGE}
+          imagePullPolicy: IfNotPresent
+          envFrom: [{ configMapRef: { name: cpay-config } }]
+          env:
+            - { name: SERVICE, value: "processor-portal" }
+            - { name: PORT, value: "8080" }
+            - { name: OTEL_SERVICE_NAME, value: "processor-portal" }
+            - { name: OTEL_RESOURCE_ATTRIBUTES, value: "service.namespace=contoso-pay,service.version=2.3.0,deployment.environment.name=prod,team=merchant-experience,k8s.namespace.name=merchant,k8s.cluster.name=${AKS_CLUSTER},cloud.region=uksouth" }
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://otel-collector.cpay.internal:4318" }
+            - { name: NODE_EXTRA_CA_CERTS, value: "/etc/cloudtyke/ca.pem" }
+            - { name: AZURE_CLIENT_ID, value: "${PORTAL_CLIENT_ID}" }
+            - { name: AZURE_TENANT_ID, value: "${AZURE_TENANT_ID}" }
+            - { name: AZURE_FEDERATED_TOKEN_FILE, value: "/var/run/secrets/azure/tokens/azure-identity-token" }
+            - { name: AZURE_AUTHORITY_HOST, value: "https://login.${CLOUDTYKE_DOMAIN}" }
+            - { name: GATEWAY_URL, value: "http://payment-gateway.payments.svc.cluster.local:8080" }
+            - { name: RISK_URL, value: "http://risk-engine.risk.svc.cluster.local:8080" }
+            - { name: STOREFRONT_URL, value: "http://northwind-storefront.storefront.svc.cluster.local:8080" }
+            - { name: PGSSL_DISABLE, value: "true" }
+            - { name: MONGO_LOCAL_STANDIN, value: "true" }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: azure-identity-token, mountPath: /var/run/secrets/azure/tokens, readOnly: true }
+            - { name: cloudtyke-ca, mountPath: /etc/cloudtyke, readOnly: true }
+          ports: [{ name: http, containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 5 }
+      volumes:
+        - name: azure-identity-token
+          projected:
+            sources:
+              - serviceAccountToken: { path: azure-identity-token, audience: api://AzureADTokenExchange, expirationSeconds: 3600 }
+        - name: cloudtyke-ca
+          configMap: { name: cloudtyke-ca }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: processor-portal, namespace: merchant }
+spec:
+  selector: { app: processor-portal }
+  ports: [{ name: http, port: 8080, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: settlement-batch
+  namespace: settlement
+  labels: { app: settlement-batch, team: data-and-settlement }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: settlement-batch } }
+  template:
+    metadata:
+      labels: { app: settlement-batch, team: data-and-settlement, azure.workload.identity/use: "true" }
+    spec:
+      serviceAccountName: settlement-batch
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: app
+          image: ${APP_IMAGE}
+          imagePullPolicy: IfNotPresent
+          envFrom: [{ configMapRef: { name: cpay-config } }]
+          env:
+            - { name: SERVICE, value: "settlement-batch" }
+            - { name: PORT, value: "8080" }
+            - { name: OTEL_SERVICE_NAME, value: "settlement-batch" }
+            - { name: OTEL_RESOURCE_ATTRIBUTES, value: "service.namespace=contoso-pay,service.version=5.0.2,deployment.environment.name=prod,team=data-and-settlement,k8s.namespace.name=settlement,k8s.cluster.name=${AKS_CLUSTER},cloud.region=uksouth" }
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://otel-collector.cpay.internal:4318" }
+            - { name: NODE_EXTRA_CA_CERTS, value: "/etc/cloudtyke/ca.pem" }
+            - { name: AZURE_CLIENT_ID, value: "${SETTLEMENT_CLIENT_ID}" }
+            - { name: AZURE_TENANT_ID, value: "${AZURE_TENANT_ID}" }
+            - { name: AZURE_FEDERATED_TOKEN_FILE, value: "/var/run/secrets/azure/tokens/azure-identity-token" }
+            - { name: AZURE_AUTHORITY_HOST, value: "https://login.${CLOUDTYKE_DOMAIN}" }
+            - { name: GATEWAY_URL, value: "http://payment-gateway.payments.svc.cluster.local:8080" }
+            - { name: RISK_URL, value: "http://risk-engine.risk.svc.cluster.local:8080" }
+            - { name: STOREFRONT_URL, value: "http://northwind-storefront.storefront.svc.cluster.local:8080" }
+            - { name: PGSSL_DISABLE, value: "true" }
+            - { name: MONGO_LOCAL_STANDIN, value: "true" }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: azure-identity-token, mountPath: /var/run/secrets/azure/tokens, readOnly: true }
+            - { name: cloudtyke-ca, mountPath: /etc/cloudtyke, readOnly: true }
+      volumes:
+        - name: azure-identity-token
+          projected:
+            sources:
+              - serviceAccountToken: { path: azure-identity-token, audience: api://AzureADTokenExchange, expirationSeconds: 3600 }
+        - name: cloudtyke-ca
+          configMap: { name: cloudtyke-ca }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-generator
+  namespace: storefront
+  labels: { app: traffic-generator, team: synthetic }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: traffic-generator } }
+  template:
+    metadata:
+      labels: { app: traffic-generator, team: synthetic, azure.workload.identity/use: "true" }
+    spec:
+      serviceAccountName: northwind-storefront
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: app
+          image: ${APP_IMAGE}
+          imagePullPolicy: IfNotPresent
+          envFrom: [{ configMapRef: { name: cpay-config } }]
+          env:
+            - { name: SERVICE, value: "traffic-generator" }
+            - { name: PORT, value: "8080" }
+            - { name: OTEL_SERVICE_NAME, value: "traffic-generator" }
+            - { name: OTEL_RESOURCE_ATTRIBUTES, value: "service.namespace=contoso-pay,service.version=1.0.0,deployment.environment.name=prod,team=synthetic,k8s.namespace.name=storefront,k8s.cluster.name=${AKS_CLUSTER},cloud.region=uksouth" }
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://otel-collector.cpay.internal:4318" }
+            - { name: NODE_EXTRA_CA_CERTS, value: "/etc/cloudtyke/ca.pem" }
+            - { name: AZURE_CLIENT_ID, value: "${STOREFRONT_CLIENT_ID}" }
+            - { name: AZURE_TENANT_ID, value: "${AZURE_TENANT_ID}" }
+            - { name: AZURE_FEDERATED_TOKEN_FILE, value: "/var/run/secrets/azure/tokens/azure-identity-token" }
+            - { name: AZURE_AUTHORITY_HOST, value: "https://login.${CLOUDTYKE_DOMAIN}" }
+            - { name: GATEWAY_URL, value: "http://payment-gateway.payments.svc.cluster.local:8080" }
+            - { name: RISK_URL, value: "http://risk-engine.risk.svc.cluster.local:8080" }
+            - { name: STOREFRONT_URL, value: "http://northwind-storefront.storefront.svc.cluster.local:8080" }
+            - { name: PGSSL_DISABLE, value: "true" }
+            - { name: MONGO_LOCAL_STANDIN, value: "true" }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 256Mi }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: azure-identity-token, mountPath: /var/run/secrets/azure/tokens, readOnly: true }
+            - { name: cloudtyke-ca, mountPath: /etc/cloudtyke, readOnly: true }
+      volumes:
+        - name: azure-identity-token
+          projected:
+            sources:
+              - serviceAccountToken: { path: azure-identity-token, audience: api://AzureADTokenExchange, expirationSeconds: 3600 }
+        - name: cloudtyke-ca
+          configMap: { name: cloudtyke-ca }

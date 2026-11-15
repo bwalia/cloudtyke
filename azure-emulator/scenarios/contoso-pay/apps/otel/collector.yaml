@@ -1,0 +1,49 @@
+receivers:
+  otlp:
+    protocols:
+      grpc: { endpoint: 0.0.0.0:4317 }
+      http: { endpoint: 0.0.0.0:4318 }
+
+processors:
+  batch: { timeout: 2s }
+
+connectors:
+  # RED metrics per service/operation and the service dependency graph, derived from spans.
+  # Dashboards count calls with traces_span_metrics_duration_milliseconds_count: in
+  # collector-contrib 0.165 traces_span_metrics_calls_total is exported as 0.
+  span_metrics:
+    aggregation_temporality: AGGREGATION_TEMPORALITY_CUMULATIVE
+    metrics_flush_interval: 5s # default 60s makes 1-minute rates read 0 or spike
+    histogram:
+      explicit: { buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s] }
+    dimensions:
+      - name: http.response.status_code
+  service_graph:
+    metrics_flush_interval: 5s
+    # Name the uninstrumented ends: databases by system, Azure data planes by host.
+    virtual_node_peer_attributes: [peer.service, db.system.name, db.system, server.address]
+    latency_histogram_buckets: [10ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s]
+
+exporters:
+  otlp_grpc/jaeger:
+    endpoint: jaeger:4317
+    tls: { insecure: true }
+  prometheus:
+    endpoint: 0.0.0.0:8889
+  otlp_http/loki:
+    endpoint: http://loki:3100/otlp
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp_grpc/jaeger, span_metrics, service_graph]
+    metrics:
+      receivers: [otlp, span_metrics, service_graph]
+      processors: [batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp_http/loki]

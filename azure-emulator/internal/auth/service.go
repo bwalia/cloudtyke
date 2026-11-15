@@ -489,6 +489,27 @@ func (s *Service) Authenticate(r *http.Request, audienceHost string) (*Identity,
 	if u, err := url.Parse(aud); err != nil || !strings.EqualFold(u.Hostname(), audienceHost) {
 		return nil, "InvalidAuthenticationTokenAudience", fmt.Sprintf("The access token has been obtained for wrong audience or resource '%s'. It should exactly match with one of the allowed audiences 'https://%s/'.", aud, audienceHost)
 	}
+	return identityFrom(claims), "", ""
+}
+
+// VerifyBearer validates a bearer token whose audience must equal one of
+// audiences exactly (application IDs such as the AKS Entra server app).
+func (s *Service) VerifyBearer(token string, audiences ...string) (*Identity, error) {
+	claims, err := s.Signer.Verify(strings.TrimSpace(token))
+	if err != nil {
+		return nil, err
+	}
+	aud, _ := claims["aud"].(string)
+	for _, a := range audiences {
+		if strings.EqualFold(aud, a) {
+			return identityFrom(claims), nil
+		}
+	}
+	return nil, fmt.Errorf("token audience %q is not accepted", aud)
+}
+
+func identityFrom(claims map[string]any) *Identity {
+	aud, _ := claims["aud"].(string)
 	id := &Identity{Claims: claims, Audience: aud}
 	id.TenantID, _ = claims["tid"].(string)
 	id.ObjectID, _ = claims["oid"].(string)
@@ -500,7 +521,7 @@ func (s *Service) Authenticate(r *http.Request, audienceHost string) (*Identity,
 	if id.Type == "" {
 		id.Type = "app"
 	}
-	return id, "", ""
+	return id
 }
 
 func oauthError(w http.ResponseWriter, status int, code, desc string) {

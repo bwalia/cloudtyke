@@ -2,19 +2,32 @@ package app
 
 import (
 	"log/slog"
+	"net/http"
 
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/arm"
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/config"
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/containerservice"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/databases"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/keyvault"
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/managedidentity"
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/monitoring"
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/network"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/policy"
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/registry"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/storage"
 )
 
 // registerPhase2 wires the networking, identity, monitoring, registry and
 // AKS resource providers and returns the AKS RP (nil backend = API stub).
-func registerPhase2(s *arm.Server, backend ...containerservice.Backend) *containerservice.RP {
+func registerPhase2(s *arm.Server, backend ...containerservice.Backend) (*containerservice.RP, map[string]http.Handler) {
+	dataPlanes := map[string]http.Handler{}
+	policy.Register(s)
+	kv := keyvault.Register(s)
+	dataPlanes["."+s.Cfg.Host("vault")] = kv.DataPlane()
+	databases.Register(s)
+	st := storage.Register(s)
+	dataPlanes[".blob."+s.Cfg.Host("storage")] = st.BlobDataPlane()
+	dataPlanes[".file."+s.Cfg.Host("storage")] = st.FileDataPlane()
 	network.Register(s)
 	managedidentity.Register(s)
 	monitoring.Register(s)
@@ -23,7 +36,7 @@ func registerPhase2(s *arm.Server, backend ...containerservice.Backend) *contain
 	if len(backend) > 0 && backend[0] != nil {
 		b = backend[0]
 	}
-	return containerservice.Register(s, b)
+	return containerservice.Register(s, b), dataPlanes
 }
 
 // aksBackend picks what answers kubectl for AKS clusters:

@@ -324,7 +324,13 @@ func (s *Server) validateScope(q *Request, scope string) bool {
 	}
 	// extension resource on a resource: the parent resource must exist
 	if hierarchy.LastProviders(seg) >= 0 {
-		if _, ok, _ := s.Store.Get(store.BucketARM, StoreKey(scope)); !ok {
+		key := scope
+		// Azure RBAC for Kubernetes: a namespace of an AKS cluster is a valid
+		// scope (.../managedClusters/{c}/namespaces/{ns}) whenever the cluster exists.
+		if n := len(seg); n >= 4 && eq(seg[n-2], "namespaces") && eq(seg[n-4], "managedClusters") {
+			key = "/" + strings.Join(seg[:n-2], "/")
+		}
+		if _, ok, _ := s.Store.Get(store.BucketARM, StoreKey(key)); !ok {
 			pid, _ := ParseProviderPath(seg)
 			q.Error(404, "ResourceNotFound", Errorf("The Resource '%s/%s' under resource group '%s' was not found. For more details please go to https://aka.ms/ARMResourceNotFoundFix", pid.Namespace, strings.Join(zipPath(pid), "/"), ScopeResourceGroup(scope)))
 			return false

@@ -9,7 +9,7 @@ EXAMPLES ?= quickstart entra aks-platform landing-zone
 REPORTS ?= reports
 GO_TEST_FLAGS ?= -count=1
 
-.PHONY: help build test test-race test-services test-all selftest lint coverage coverage-check up up-k3s down clean logs reset env shell tf-e2e tf-e2e-terraform aks-k3s-smoke lab-hub-spoke lab-avnm dashboard dashboard-lan dashboard-dev
+.PHONY: help build test test-race test-services test-all selftest lint coverage coverage-check up up-k3s down clean logs reset env shell tf-e2e tf-e2e-terraform aks-k3s-smoke lab-hub-spoke lab-avnm contoso-pay contoso-pay-aks contoso-pay-smoke contoso-pay-down dashboard dashboard-lan dashboard-dev
 
 help: ## show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -113,6 +113,18 @@ lab-hub-spoke: ## grade the hub-and-spoke lab end to end (TOOL=tofu|terraform)
 lab-avnm: ## grade the Virtual Network Manager lab end to end (TOOL=tofu|terraform)
 	$(COMPOSE) --profile tools build toolbox
 	$(TOOLBOX) ./test/labs/avnm.sh $(or $(TOOL),tofu)
+
+contoso-pay: ## deploy the Contoso Pay scenario and start its live apps + OpenTelemetry stack (TOOL=tofu|terraform)
+	TOOL=$(or $(TOOL),tofu) ./scenarios/contoso-pay/apps/scripts/up.sh
+
+contoso-pay-aks: ## deploy the Contoso Pay apps to the scenario's AKS cluster (after make up-k3s and make contoso-pay)
+	TOOL=$(or $(TOOL),tofu) ./scenarios/contoso-pay/apps/scripts/deploy-aks.sh
+
+contoso-pay-smoke: ## check the running Contoso Pay demo end to end (checkout, Blob, Files, traces, metrics, logs)
+	./scenarios/contoso-pay/apps/scripts/smoke.sh
+
+contoso-pay-down: ## stop the Contoso Pay apps (add ARGS=-v to drop their data)
+	docker compose -f scenarios/contoso-pay/apps/docker-compose.yml down $(ARGS)
 
 aks-k3s-smoke: ## real k3s AKS cluster + kubectl + workload identity end to end (after make up-k3s)
 	@test -f .k3s-mode || (echo "run make up-k3s first" && exit 1)
