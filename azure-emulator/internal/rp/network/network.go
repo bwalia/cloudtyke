@@ -37,6 +37,8 @@ func Register(s *arm.Server) {
 		s.Registry.Register(&arm.TypeRegistration{Namespace: ns, Types: types, APIVersions: versions, Scopes: []arm.ScopeKind{arm.KindResourceGroup}, Phase: 2, Notes: notes, Handler: h})
 	}
 
+	registerAVNM(s)
+
 	reg([]string{"virtualNetworks"}, APIVersions, "address space validation, inline subnets synced with child resources, peerings listed, delete blocked while subnets are in use",
 		arm.Generic(arm.GenericOptions{Tracked: true, Async: true,
 			Prepare: func(q *arm.Request, body, existing map[string]any) error { return prepareVNet(q, body) },

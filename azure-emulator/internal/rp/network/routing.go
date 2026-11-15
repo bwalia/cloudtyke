@@ -32,8 +32,10 @@ import (
 )
 
 type netModel struct {
-	vnets   map[string]*vnetM // by lower-case id
-	subnets []*subnetM
+	vnets     map[string]*vnetM // by lower-case id
+	subnets   []*subnetM
+	connected map[string][]string    // Virtual Network Manager connected groups
+	admin     map[string][]adminRule // active security admin rules by VNet
 }
 
 type vnetM struct {
@@ -70,6 +72,7 @@ type Route struct {
 
 func loadModel(s *arm.Server) *netModel {
 	m := &netModel{vnets: map[string]*vnetM{}}
+	m.connected, m.admin = avnmState(s)
 	type rawPeer struct {
 		vnet string
 		doc  map[string]any
@@ -175,6 +178,19 @@ func (m *netModel) effectiveRoutes(s *arm.Server, sn *subnetM) []Route {
 			sys = append(sys, Route{Source: "Default", AddressPrefix: p.String(), NextHopType: "VNetPeering", Name: pr.name, prefix: p, remote: pr.remote})
 		}
 	}
+	peered := map[string]bool{}
+	for _, pr := range sn.vnet.peerings {
+		peered[pr.remote] = true
+	}
+	for _, other := range m.connected[strings.ToLower(sn.vnet.id)] {
+		v := m.vnets[other]
+		if v == nil || peered[other] {
+			continue
+		}
+		for _, p := range v.prefixes {
+			sys = append(sys, Route{Source: "Default", AddressPrefix: p.String(), NextHopType: "ConnectedGroup", Name: v.name, prefix: p, remote: other})
+		}
+	}
 	def := netip.MustParsePrefix("0.0.0.0/0")
 	sys = append(sys, Route{Source: "Default", AddressPrefix: "0.0.0.0/0", NextHopType: "Internet", prefix: def})
 	for _, r := range reservedNone {
@@ -245,6 +261,12 @@ func (m *netModel) vnetTag(s *arm.Server, sn *subnetM) []netip.Prefix {
 	for _, pr := range sn.vnet.peerings {
 		if _, ok := m.peerTo(sn.vnet, pr.remote); ok {
 			out = append(out, m.vnets[pr.remote].prefixes...)
+		}
+	}
+	// Virtual Network Manager connected groups are reachable like peered VNets
+	for _, other := range m.connected[strings.ToLower(sn.vnet.id)] {
+		if v := m.vnets[other]; v != nil {
+			out = append(out, v.prefixes...)
 		}
 	}
 	// Azure's VirtualNetwork tag also covers prefixes used in the subnet's UDRs
@@ -378,6 +400,74 @@ func (m *netModel) evalNSG(s *arm.Server, sn *subnetM, dir, proto string, src, d
 	return nil, true
 }
 
+// security applies Virtual Network Manager security admin rules, then the
+// subnet NSG (unless an admin rule said AlwaysAllow). It returns the hops
+// to record and whether the packet may pass.
+func (m *netModel) security(s *arm.Server, sn *subnetM, dir, proto string, src, dst netip.Addr, port int) ([]Hop, bool) {
+	var hops []Hop
+	for _, r := range m.admin[strings.ToLower(sn.vnet.id)] {
+		if !strings.EqualFold(strOf(r.p["direction"]), dir) {
+			continue
+		}
+		if pr := strOf(r.p["protocol"]); pr != "Any" && !strings.EqualFold(pr, proto) {
+			continue
+		}
+		match := func(key string, ip netip.Addr) bool {
+			list := entraObjects(r.p[key])
+			if len(list) == 0 {
+				return true
+			}
+			for _, a := range list {
+				if matchAddr(s, m, sn, strOf(a["addressPrefix"]), ip) {
+					return true
+				}
+			}
+			return false
+		}
+		if !match("sources", src) || !match("destinations", dst) {
+			continue
+		}
+		if ports := strList(r.p["destinationPortRanges"]); len(ports) > 0 && !strings.EqualFold(proto, "Icmp") {
+			ok := false
+			for _, pr := range ports {
+				if matchPort(pr, port) {
+					ok = true
+				}
+			}
+			if !ok {
+				continue
+			}
+		}
+		access := strOf(r.p["access"])
+		hit := &RuleHit{NSG: "admin: " + r.manager + "/" + r.collection, Rule: r.name, Priority: r.prio, Access: access, Direction: dir}
+		switch access {
+		case "Deny":
+			return append(hops, Hop{Where: where(sn), Action: "Security admin " + strings.ToLower(dir), Detail: fmt.Sprintf("Denied by security admin rule %s (priority %d) from network manager %s. Admin rules are evaluated before NSGs, so no NSG can allow this.", r.name, r.prio, r.manager), Rule: hit, Verdict: "blocked"}), false
+		case "AlwaysAllow":
+			return append(hops, Hop{Where: where(sn), Action: "Security admin " + strings.ToLower(dir), Detail: fmt.Sprintf("AlwaysAllow by security admin rule %s (priority %d) from network manager %s: the NSG is skipped, even if it would deny.", r.name, r.prio, r.manager), Rule: hit, Verdict: "ok"}), true
+		default:
+			hops = append(hops, Hop{Where: where(sn), Action: "Security admin " + strings.ToLower(dir), Detail: fmt.Sprintf("Allowed by security admin rule %s (priority %d); the subnet NSG still decides.", r.name, r.prio), Rule: hit, Verdict: "ok"})
+		}
+		break
+	}
+	if hit, ok := m.evalNSG(s, sn, dir, proto, src, dst, port); !ok {
+		return append(hops, Hop{Where: where(sn), Action: "NSG " + strings.ToLower(dir), Detail: fmt.Sprintf("Denied by rule %s (priority %d) of %s.", hit.Rule, hit.Priority, hit.NSG), Rule: hit, Verdict: "blocked"}), false
+	} else if hit != nil {
+		hops = append(hops, Hop{Where: where(sn), Action: "NSG " + strings.ToLower(dir), Detail: fmt.Sprintf("Allowed by rule %s (priority %d) of %s.", hit.Rule, hit.Priority, hit.NSG), Rule: hit, Verdict: "ok"})
+	}
+	return hops, true
+}
+
+func ruleLabel(h *RuleHit) string {
+	if h == nil {
+		return "a rule"
+	}
+	if strings.HasPrefix(h.NSG, "admin: ") {
+		return "security admin rule " + h.Rule
+	}
+	return "NSG rule " + h.Rule
+}
+
 // ------------------------------------------------------------ trace
 
 // Hop is one step of a trace.
@@ -403,16 +493,40 @@ type TraceResult struct {
 
 func where(sn *subnetM) string { return sn.vnet.name + "/" + sn.name }
 
-// Trace follows a packet from srcIP to dstIP:port.
-func Trace(s *arm.Server, srcIP, dstIP netip.Addr, proto string, port int) TraceResult {
+// Trace follows a packet from srcIP to dstIP:port. srcSubnet (optional)
+// pins the source subnet when the same address exists in several VNets.
+func Trace(s *arm.Server, srcIP, dstIP netip.Addr, proto string, port int, srcSubnet string) TraceResult {
 	m := loadModel(s)
 	res := TraceResult{Source: map[string]any{"ip": srcIP.String()}, Destination: map[string]any{"ip": dstIP.String(), "protocol": proto, "port": port}}
 	add := func(h Hop) { h.Step = len(res.Hops) + 1; res.Hops = append(res.Hops, h) }
 	finish := func(result, summary string) TraceResult { res.Result, res.Summary = result, summary; return res }
 
-	src := m.subnetFor(srcIP)
-	if src == nil {
-		return finish("Unknown", fmt.Sprintf("%s is not inside any subnet you can see.", srcIP))
+	var src *subnetM
+	if srcSubnet != "" {
+		src = m.subnetByID(srcSubnet)
+		if src == nil {
+			return finish("Unknown", "Source subnet "+srcSubnet+" was not found.")
+		}
+	} else {
+		var matches []*subnetM
+		for _, sn := range m.subnets {
+			for _, p := range sn.prefixes {
+				if p.Contains(srcIP) {
+					matches = append(matches, sn)
+				}
+			}
+		}
+		if len(matches) == 0 {
+			return finish("Unknown", fmt.Sprintf("%s is not inside any subnet you can see.", srcIP))
+		}
+		if len(matches) > 1 {
+			var names []string
+			for _, mt := range matches {
+				names = append(names, where(mt))
+			}
+			return finish("Unknown", fmt.Sprintf("%s exists in %d subnets (%s): unconnected VNets may reuse addresses. Pass fromSubnet=<subnet id> to choose.", srcIP, len(matches), strings.Join(names, ", ")))
+		}
+		src = matches[0]
 	}
 	res.Source["subnet"], res.Source["vnet"] = src.name, src.vnet.name
 	if d := m.subnetFor(dstIP); d != nil {
@@ -424,11 +538,16 @@ func Trace(s *arm.Server, srcIP, dstIP netip.Addr, proto string, port int) Trace
 	if first, ok := lookup(m.effectiveRoutes(s, src), dstIP); ok && first.NextHopType == "None" {
 		goto route
 	}
-	if hit, ok := m.evalNSG(s, src, "Outbound", proto, srcIP, dstIP, port); !ok {
-		add(Hop{Where: where(src), Action: "NSG outbound", Detail: fmt.Sprintf("Denied by rule %s (priority %d) of %s.", hit.Rule, hit.Priority, hit.NSG), Rule: hit, Verdict: "blocked"})
-		return finish("Blocked", fmt.Sprintf("Blocked leaving %s by NSG rule %s.", src.name, hit.Rule))
-	} else if hit != nil {
-		add(Hop{Where: where(src), Action: "NSG outbound", Detail: fmt.Sprintf("Allowed by rule %s (priority %d) of %s.", hit.Rule, hit.Priority, hit.NSG), Rule: hit, Verdict: "ok"})
+	if hops, ok := m.security(s, src, "Outbound", proto, srcIP, dstIP, port); !ok {
+		for _, h := range hops {
+			add(h)
+		}
+		last := hops[len(hops)-1]
+		return finish("Blocked", fmt.Sprintf("Blocked leaving %s by %s.", src.name, ruleLabel(last.Rule)))
+	} else {
+		for _, h := range hops {
+			add(h)
+		}
 	}
 
 route:
@@ -452,6 +571,10 @@ route:
 				add(h)
 				return finish("Dropped", h.Detail)
 			}
+			return m.deliver(s, &res, add, finish, remote, srcIP, dstIP, proto, port)
+		case "ConnectedGroup":
+			remote := m.vnets[r.remote]
+			add(Hop{Where: where(cur), Action: "Route", Detail: fmt.Sprintf("%s matches %s with next hop ConnectedGroup: Virtual Network Manager connects %s and %s directly (no peering resource).", dstIP, r.AddressPrefix, cur.vnet.name, remote.name), Route: &rc, Verdict: "ok"})
 			return m.deliver(s, &res, add, finish, remote, srcIP, dstIP, proto, port)
 		case "VirtualAppliance":
 			nva, _ := netip.ParseAddr(r.NextHopIP)
@@ -535,11 +658,12 @@ func (m *netModel) deliver(s *arm.Server, res *TraceResult, add func(Hop), finis
 		add(Hop{Where: v.name, Action: "Deliver", Detail: fmt.Sprintf("No subnet in %s contains %s.", v.name, dst), Verdict: "dropped"})
 		return finish("Dropped", "The destination address is not in any subnet.")
 	}
-	if hit, ok := m.evalNSG(s, d, "Inbound", proto, src, dst, port); !ok {
-		add(Hop{Where: where(d), Action: "NSG inbound", Detail: fmt.Sprintf("Denied by rule %s (priority %d) of %s.", hit.Rule, hit.Priority, hit.NSG), Rule: hit, Verdict: "blocked"})
-		return finish("Blocked", fmt.Sprintf("Reached %s but NSG rule %s denied it.", where(d), hit.Rule))
-	} else if hit != nil {
-		add(Hop{Where: where(d), Action: "NSG inbound", Detail: fmt.Sprintf("Allowed by rule %s (priority %d) of %s.", hit.Rule, hit.Priority, hit.NSG), Rule: hit, Verdict: "ok"})
+	hops, ok := m.security(s, d, "Inbound", proto, src, dst, port)
+	for _, h := range hops {
+		add(h)
+	}
+	if !ok {
+		return finish("Blocked", fmt.Sprintf("Reached %s but %s denied it.", where(d), ruleLabel(hops[len(hops)-1].Rule)))
 	}
 	add(Hop{Where: where(d), Action: "Delivered", Detail: fmt.Sprintf("Delivered to %s in subnet %s.", dst, d.name), Verdict: "ok"})
 	return finish("Delivered", fmt.Sprintf("%s reaches %s:%d in %s.", src, dst, port, where(d)))
@@ -550,7 +674,7 @@ func (m *netModel) deliver(s *arm.Server, res *TraceResult, add func(Hop), finis
 // LabHandler serves the network lab tools under /_cloudtyke/network/:
 //
 //	GET routes?subnet=<subnet id>  or  ?ip=<address>   effective routes
-//	GET trace?from=<ip>&to=<ip>&port=443&protocol=Tcp   hop-by-hop path
+//	GET trace?from=<ip>&to=<ip>&port=443&protocol=Tcp[&fromSubnet=<id>]   hop-by-hop path
 func LabHandler(s *arm.Server) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
@@ -602,7 +726,7 @@ func LabHandler(s *arm.Server) http.Handler {
 				bad("protocol must be Tcp, Udp or Icmp")
 				return
 			}
-			write(200, Trace(s, from, to, proto, port))
+			write(200, Trace(s, from, to, proto, port, q.Get("fromSubnet")))
 		default:
 			write(404, map[string]any{"error": "use /_cloudtyke/network/routes or /_cloudtyke/network/trace"})
 		}
