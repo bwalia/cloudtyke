@@ -126,6 +126,13 @@
       "type": "CNAME",
       "content": "lon.pop0.uk",
       "comment": "sandbox: ACR via wslproxy lon1/lon2"
+    },
+    {
+      "name": "hello",
+      "type": "CNAME",
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox: hello-web via wslproxy lon1/lon2",
+      "ttl": 60
     }
   ]
 }

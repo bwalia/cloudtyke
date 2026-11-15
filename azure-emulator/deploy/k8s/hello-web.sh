@@ -2,7 +2,7 @@
 # hello-web on the hosted sandbox: https://hello.cloudtyke.dev
 #
 # Same Terraform as `make hello-web` (examples/terraform/hello-web), applied to
-# the hosted emulator (management.cloudtyke.dev) in its own "hosted" workspace,
+# the hosted emulator (management.cloudtyke.dev) with its own state file,
 # and the same app, but running in the real k3s1 cluster (namespace cloudtyke).
 # Its workload identity trusts k3s1's service-account issuer, whose keys
 # deploy.sh gave the emulator (CLOUDTYKE_TRUSTED_ISSUERS_FILE).
@@ -22,9 +22,14 @@ v() { sed -n "s/^$1=\([^ ]*\).*/\1/p" "$CRED"; }
 ISSUER=$(kubectl get --raw /.well-known/openid-configuration | jq -r .issuer)
 
 # Terraform in the toolbox, pointed at the hosted emulator (real certificates,
-# so no local CA), state in the "hosted" workspace.
+# so no local CA). It runs on a copy of main.tf with its own state file in
+# reports/hello-web-hosted/ (git-ignored), so it never touches the local
+# example's state or selected workspace. --no-deps leaves the local emulator alone.
 tf() {
-  docker compose -f "$EMU/docker-compose.yml" run --rm -T -w /work/examples/terraform/hello-web \
+  mkdir -p "$EMU/reports/hello-web-hosted"
+  cp "$EMU/examples/terraform/hello-web/main.tf" "$EMU/reports/hello-web-hosted/main.tf"
+  [ -f "$EMU/examples/terraform/hello-web/.terraform.lock.hcl" ] && cp "$EMU/examples/terraform/hello-web/.terraform.lock.hcl" "$EMU/reports/hello-web-hosted/"
+  docker compose -f "$EMU/docker-compose.yml" run --rm --no-deps -T -w /work/reports/hello-web-hosted \
     -e TOOL="$TOOL" -e ARM_METADATA_HOSTNAME=management.cloudtyke.dev \
     -e ARM_TENANT_ID="$(v tenant_id)" -e ARM_CLIENT_ID="$(v bootstrap_client_id)" -e ARM_CLIENT_SECRET="$(v bootstrap_client_secret)" \
     -e ARM_SUBSCRIPTION_ID=5b5c0000-0000-4000-8000-000000000003 \
@@ -37,17 +42,15 @@ if [ "${1:-up}" = down ]; then
   tf <<'EOS'
 set -euo pipefail
 $TOOL init -input=false -no-color >/dev/null
-$TOOL workspace select hosted >/dev/null
 $TOOL destroy -auto-approve -input=false -no-color | tail -1
 EOS
   exit 0
 fi
 
-echo "==> $TOOL apply against management.cloudtyke.dev (workspace hosted)"
+echo "==> $TOOL apply against management.cloudtyke.dev (state in reports/hello-web-hosted)"
 tf <<'EOS' >"${TMPDIR:-/tmp}/hello-hosted.json"
 set -euo pipefail
 $TOOL init -input=false -no-color >/dev/null
-$TOOL workspace select -or-create hosted >/dev/null
 $TOOL apply -auto-approve -input=false -no-color >/tmp/apply.log 2>&1 || { grep -A12 '^Error' /tmp/apply.log >&2; exit 1; }
 grep -E '^Apply complete' /tmp/apply.log >&2
 providers=$($TOOL version | sed -n 's#^+ provider [^ ]*/\([^/ ]*\) \(v[^ ]*\)$#\1 \2#p' | jq -R . | jq -sc .)

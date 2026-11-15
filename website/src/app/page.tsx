@@ -37,15 +37,15 @@ const modules: [string, string, string][] = [
   ["11", "Capstone", "build a platform from a brief"],
 ];
 
-const hosts: [string, string, "open" | "gated"][] = [
+const hosts: [string, string, "open" | "gated" | "planned"][] = [
   ["www.cloudtyke.dev", "this site", "open"],
   ["portal.cloudtyke.dev", "the CloudTyke dashboard: resources, identity, RBAC, activity, tokens", "gated"],
   ["management.cloudtyke.dev", "Azure Resource Manager (the control plane): point metadata_host here", "gated"],
   ["login.cloudtyke.dev · graph.cloudtyke.dev", "Entra ID tokens and Microsoft Graph", "gated"],
   ["*.vault.cloudtyke.dev · *.blob.storage.cloudtyke.dev", "Key Vault and Storage data planes", "gated"],
   ["hello.cloudtyke.dev", "hello-web, the end-to-end demo", "gated"],
-  ["pay.cloudtyke.dev · merchant.cloudtyke.dev", "Contoso Pay storefront and merchant portal", "gated"],
-  ["grafana.cloudtyke.dev · jaeger.cloudtyke.dev", "dashboards and traces for the live apps", "gated"],
+  ["pay.cloudtyke.dev · merchant.cloudtyke.dev", "Contoso Pay storefront and merchant portal", "planned"],
+  ["grafana.cloudtyke.dev · jaeger.cloudtyke.dev", "dashboards and traces for the live apps", "planned"],
 ];
 
 export default function Home() {
@@ -253,7 +253,7 @@ export default function Home() {
             <thead><tr><th>Hostname</th><th>What</th><th>Access</th></tr></thead>
             <tbody>
               {hosts.map(([h, w, a]) => (
-                <tr key={h}><td>{h}</td><td>{w}</td><td><span className={`badge ${a}`}>{a === "open" ? "public" : "invite"}</span></td></tr>
+                <tr key={h}><td>{h}</td><td>{w}</td><td><span className={`badge ${a}`}>{a === "open" ? "public" : a === "gated" ? "invite" : "planned"}</span></td></tr>
               ))}
             </tbody>
           </table></div>
