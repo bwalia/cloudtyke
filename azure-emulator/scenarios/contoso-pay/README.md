@@ -173,7 +173,7 @@ of them through Key Vault, as they would in Azure.
 |---|---|---|
 | `northwind-storefront` | Merchant Experience | Flight booking site for the fictional Northwind Airways. Checkout calls the gateway with the merchant key from Key Vault and receives signed webhooks. |
 | `payment-gateway` | Payments Core | Authenticates merchants, tokenises the card (HMAC key from Key Vault), asks the risk engine, simulates the acquirer, writes the ledger, events and a receipt in Blob storage. Refunds and chargebacks (with evidence in Blob). |
-| `risk-engine` | Risk & Fraud | Scores amount, geography, high-risk countries and card velocity from `risk_signals`: approve, review, or block. |
+| `risk-engine` | Risk & Fraud | Scores amount, geography, high-risk countries and velocity per card-and-customer fingerprint from `risk_signals`: approve, review, or block. |
 | `processor-portal` | Merchant Experience | The operations console: live payments, authorisation rates, declines, risk review queue, chargebacks and settlement files read from Azure Files. Every row links to its trace. |
 | `settlement-batch` | Data & Settlement | Nets captured payments per merchant, takes the fee, writes CSV settlement files and reconciliation summaries to Azure Files. |
 | `traffic-generator` | (synthetic) | Invented shoppers at about 1.5 payments a second; refunds, chargebacks, and a card-testing attack against Tailspin Toys every four minutes. |

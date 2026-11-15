@@ -35,7 +35,7 @@ rm -f "$log"
 
 echo "==> reading outputs and Key Vault secrets"
 grafana_pw=$(grep -s '^GRAFANA_ADMIN_PASSWORD=' "$APPS/.env" | cut -d= -f2- || true)
-[ -n "$grafana_pw" ] || grafana_pw=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 20)
+[ -n "$grafana_pw" ] || grafana_pw=$(openssl rand -hex 12)
 umask 077
 {
   "${COMPOSE[@]}" run --rm -T -w "$TF" -e BIN="$TOOL" toolbox bash -s <"$APPS/scripts/render-env.sh"

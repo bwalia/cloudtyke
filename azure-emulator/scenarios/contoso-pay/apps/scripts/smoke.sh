@@ -38,15 +38,24 @@ wait_for "a settlement batch is written to Azure Files" "curl -fsS $PORTAL/api/s
 batch=$(curl -fsS "$PORTAL/api/summary" | jq -r '.batches[0].file_path // empty')
 check "settlement CSV is read back from Azure Files" "curl -fsS '$PORTAL/api/settlement-file?path=$batch' | head -1 | grep -q '^payment_id,'"
 
-wait_for "Jaeger has the checkout trace" "curl -fsS $JAEGER/api/traces/$trace | jq -e '.data[0].spans | length > 10'" 30
-services=$(curl -fsS "$JAEGER/api/traces/$trace" | jq -r '[.data[0].processes[].serviceName] | unique | join(",")')
-check "the trace spans storefront, gateway and risk engine ($services)" "grep -q northwind-storefront <<<'$services' && grep -q payment-gateway <<<'$services' && grep -q risk-engine <<<'$services'"
-spans=$(curl -fsS "$JAEGER/api/traces/$trace" | jq -r '[.data[0].spans[].operationName] | join(" ")')
-check "the trace includes Key Vault, Blob, PostgreSQL and MongoDB calls" "grep -qi 'secrets\|GET' <<<'$spans' && grep -qi 'insert\|pg\|INSERT' <<<'$spans' && grep -qi 'mongodb\|insert' <<<'$spans'"
+# Spans arrive from each service's exporter in batches: wait for the whole trace.
+wait_for "Jaeger has the whole checkout trace (storefront, gateway, risk engine)" "curl -fsS $JAEGER/api/traces/$trace | jq -e '[.data[0].processes[].serviceName] as \$s | (\$s | index(\"northwind-storefront\")) and (\$s | index(\"payment-gateway\")) and (\$s | index(\"risk-engine\"))'" 30
+# What the trace touched: Azure data planes (by host) and databases (by db.system).
+touched=$(curl -fsS "$JAEGER/api/traces/$trace" | jq -r '[.data[0].spans[].tags[] | select(.key=="server.address" or .key=="net.peer.name" or .key=="db.system" or .key=="db.system.name") | .value | tostring] | unique | join(" ")')
+has() { grep -q -- "$1" <<<"$touched"; }
+if has '.blob.storage.' && has 'postgresql' && has 'mongodb'; then ok "the trace includes Blob, PostgreSQL and MongoDB calls"
+else bad "the trace includes Blob, PostgreSQL and MongoDB calls (saw: $touched)"; fi
+# Secrets are cached for five minutes, so look for Key Vault calls across recent gateway traces.
+vault=$(grep -s '^PAYMENTS_VAULT_URI=' "$APPS/.env" | cut -d/ -f3)
+kv=$(curl -fsS -G "$JAEGER/api/v3/traces" --data-urlencode query.service_name=payment-gateway \
+  --data-urlencode "query.attributes={\"server.address\":\"$vault\"}" --data-urlencode query.search_depth=5 \
+  --data-urlencode "query.start_time_min=$(date -u -d '-1 hour' +%FT%TZ 2>/dev/null || date -u -v-1H +%FT%TZ)" \
+  --data-urlencode "query.start_time_max=$(date -u +%FT%TZ)" 2>/dev/null | jq '[.result.resourceSpans[]?.scopeSpans[]?.spans[]?] | length' 2>/dev/null)
+if [ "${kv:-0}" -gt 0 ]; then ok "Jaeger has Key Vault calls from the gateway ($vault)"; else bad "Jaeger has Key Vault calls from the gateway ($vault)"; fi
 wait_for "Prometheus has payment metrics" "curl -fsS '$PROM/api/v1/query?query=sum(cpay_payments_total)' | jq -e '.data.result[0].value[1] | tonumber > 0'" 30
-wait_for "Prometheus has span metrics" "curl -fsS '$PROM/api/v1/query?query=sum(traces_span_metrics_calls_total)' | jq -e '.data.result | length > 0'" 30
-loki=$(cd "$APPS" && docker compose exec -T loki wget -qO- 'http://localhost:3100/loki/api/v1/labels' 2>/dev/null)
-check "Loki is receiving logs" "jq -e '.data | index(\"service_name\")' <<<'$loki'"
+wait_for "Prometheus has span metrics" "curl -fsS '$PROM/api/v1/query?query=sum(traces_span_metrics_duration_milliseconds_count)' | jq -e '.data.result[0].value[1] | tonumber > 0'" 30
+GRAFANA=http://localhost:${GRAFANA_PORT:-4730}
+wait_for "Loki has logs from the payment gateway" "curl -fsS -G '$GRAFANA/api/datasources/proxy/uid/loki/loki/api/v1/query_range' --data-urlencode 'query={service_name=\"payment-gateway\"}' --data-urlencode limit=5 | jq -e '.data.result | length > 0'" 30
 
 [ $fail -eq 0 ] && echo "CONTOSO PAY SMOKE PASSED" || echo "CONTOSO PAY SMOKE FAILED"
 exit $fail

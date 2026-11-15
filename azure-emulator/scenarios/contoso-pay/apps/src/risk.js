@@ -23,7 +23,8 @@ app.post('/v1/score', async (req, res, next) => {
     const db = await stores.events();
     const signals = db.collection('risk_signals');
     const since = new Date(Date.now() - 10 * 60_000);
-    const velocity = await signals.countDocuments({ cardToken: s.cardToken, createdAt: { $gt: since } });
+    // Velocity per card + customer fingerprint (a stolen card tried repeatedly by one buyer).
+    const velocity = await signals.countDocuments({ fingerprint: s.fingerprint, createdAt: { $gt: since } });
     const reasons = [];
     let score = Math.floor(Math.random() * 10);
     const gbp = s.currency === 'GBP' ? s.amountMinor : s.amountMinor * 0.85;
@@ -37,7 +38,7 @@ app.post('/v1/score', async (req, res, next) => {
     trace.getActiveSpan()?.setAttributes({ 'cpay.risk_score': score, 'cpay.risk_decision': decision, 'cpay.velocity': velocity });
     mScore.record(score, { merchant: s.merchantId, decision });
     mDecisions.add(1, { merchant: s.merchantId, decision });
-    await signals.insertOne({ paymentId: s.paymentId, merchantId: s.merchantId, cardToken: s.cardToken, score, decision, reasons, velocity, ipCountry: s.ipCountry, cardCountry: s.cardCountry, createdAt: new Date() });
+    await signals.insertOne({ paymentId: s.paymentId, merchantId: s.merchantId, cardToken: s.cardToken, fingerprint: s.fingerprint, score, decision, reasons, velocity, ipCountry: s.ipCountry, cardCountry: s.cardCountry, createdAt: new Date() });
     if (decision !== 'approve') log.warn({ payment: s.paymentId, score, decision, reasons }, 'payment flagged by risk engine');
     res.json({ score, decision, reasons });
   } catch (err) { next(err); }
@@ -51,6 +52,6 @@ app.use((err, _req, res, _next) => {
 
 azure.retry('risk signals store', async () => {
   const db = await stores.events();
-  await db.collection('risk_signals').createIndex({ cardToken: 1, createdAt: -1 });
+  await db.collection('risk_signals').createIndex({ fingerprint: 1, createdAt: -1 });
 }).then(() => app.listen(cfg.port(), () => log.info({ port: cfg.port() }, 'risk engine listening')))
   .catch((err) => { log.fatal({ err: err.message }, 'risk engine failed to start'); process.exit(1); });

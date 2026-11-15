@@ -191,7 +191,8 @@ app.post('/v1/payments', authenticate, async (req, res, next) => {
 
     const riskRes = await fetch(`${cfg.riskUrl()}/v1/score`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentId: p.id, merchantId: p.merchant_id, amountMinor: amount, currency: p.currency, cardToken: p.card_token, cardCountry: known.country, ipCountry: p.ip_country, mcc: merchant.mcc }),
+      body: JSON.stringify({ paymentId: p.id, merchantId: p.merchant_id, amountMinor: amount, currency: p.currency, cardToken: p.card_token,
+        fingerprint: crypto.createHash('sha256').update(`${p.card_token}|${(p.customer_email || '').toLowerCase()}`).digest('hex').slice(0, 20), cardCountry: known.country, ipCountry: p.ip_country, mcc: merchant.mcc }),
     });
     const risk = await riskRes.json();
     p.risk_score = risk.score;

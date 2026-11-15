@@ -14,13 +14,14 @@ const { BatchLogRecordProcessor } = require('@opentelemetry/sdk-logs');
 if (process.env.OTEL_SDK_DISABLED !== 'true') {
   const sdk = new NodeSDK({
     traceExporter: new OTLPTraceExporter(),
-    metricReader: new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter(), exportIntervalMillis: 5000 }),
-    logRecordProcessors: [new BatchLogRecordProcessor(new OTLPLogExporter())],
+    metricReaders: [new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter(), exportIntervalMillis: 5000 })],
+    logRecordProcessors: [new BatchLogRecordProcessor({ exporter: new OTLPLogExporter() })],
     instrumentations: [getNodeAutoInstrumentations({
       '@opentelemetry/instrumentation-fs': { enabled: false },
       '@opentelemetry/instrumentation-dns': { enabled: false },
       '@opentelemetry/instrumentation-net': { enabled: false },
       '@opentelemetry/instrumentation-http': { ignoreIncomingRequestHook: (req) => req.url === '/healthz' },
+      '@opentelemetry/instrumentation-express': { ignoreLayersType: ['middleware'] },
     })],
   });
   sdk.start();

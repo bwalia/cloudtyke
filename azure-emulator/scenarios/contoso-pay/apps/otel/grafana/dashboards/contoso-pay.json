@@ -43,7 +43,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum(rate(cpay_payments_total[$__rate_interval]))*60",
+     "expr": "sum(rate(cpay_payments_total[2m]))*60",
      "datasource": {
       "type": "prometheus",
       "uid": "prometheus"
@@ -96,7 +96,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum(rate(cpay_payments_total{status!=\"declined\"}[$__rate_interval])) / sum(rate(cpay_payments_total[$__rate_interval]))",
+     "expr": "sum(rate(cpay_payments_total{status!=\"declined\"}[2m])) / sum(rate(cpay_payments_total[2m]))",
      "datasource": {
       "type": "prometheus",
       "uid": "prometheus"
@@ -157,7 +157,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum(rate(cpay_payment_volume_total{currency=\"GBP\"}[$__rate_interval]))*3600/100",
+     "expr": "sum(rate(cpay_payment_volume_total{currency=\"GBP\"}[2m]))*3600/100",
      "datasource": {
       "type": "prometheus",
       "uid": "prometheus"
@@ -210,7 +210,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum(rate(cpay_payments_total{decline_reason=\"risk_blocked\"}[$__rate_interval]))*60",
+     "expr": "sum(rate(cpay_payments_total{decline_reason=\"risk_blocked\"}[2m]))*60",
      "datasource": {
       "type": "prometheus",
       "uid": "prometheus"
@@ -271,7 +271,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "histogram_quantile(0.95, sum by (le) (rate(cpay_acquirer_latency_milliseconds_bucket[$__rate_interval])))",
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(cpay_acquirer_latency_milliseconds_bucket[2m])))",
      "datasource": {
       "type": "prometheus",
       "uid": "prometheus"
@@ -389,7 +389,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum by (status) (rate(cpay_payments_total[$__rate_interval]))*60",
+     "expr": "sum by (status) (rate(cpay_payments_total[2m]))*60",
      "legendFormat": "{{status}}",
      "datasource": {
       "type": "prometheus",
@@ -441,7 +441,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum by (merchant) (rate(cpay_payments_total[$__rate_interval]))*60",
+     "expr": "sum by (merchant) (rate(cpay_payments_total[2m]))*60",
      "legendFormat": "{{merchant}}",
      "datasource": {
       "type": "prometheus",
@@ -493,7 +493,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum by (decline_reason) (rate(cpay_payments_total{status=\"declined\"}[$__rate_interval]))*60",
+     "expr": "sum by (decline_reason) (rate(cpay_payments_total{status=\"declined\"}[2m]))*60",
      "legendFormat": "{{decline_reason}}",
      "datasource": {
       "type": "prometheus",
@@ -545,7 +545,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum by (decision) (rate(cpay_risk_decisions_total[$__rate_interval]))*60",
+     "expr": "sum by (decision) (rate(cpay_risk_decisions_total[2m]))*60",
      "legendFormat": "{{decision}}",
      "datasource": {
       "type": "prometheus",
@@ -598,7 +598,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "histogram_quantile(0.5, sum by (le, acquirer) (rate(cpay_acquirer_latency_milliseconds_bucket[$__rate_interval])))",
+     "expr": "histogram_quantile(0.5, sum by (le, acquirer) (rate(cpay_acquirer_latency_milliseconds_bucket[2m])))",
      "legendFormat": "p50 {{acquirer}}",
      "datasource": {
       "type": "prometheus",
@@ -608,7 +608,7 @@
     },
     {
      "refId": "B",
-     "expr": "histogram_quantile(0.99, sum by (le, acquirer) (rate(cpay_acquirer_latency_milliseconds_bucket[$__rate_interval])))",
+     "expr": "histogram_quantile(0.99, sum by (le, acquirer) (rate(cpay_acquirer_latency_milliseconds_bucket[2m])))",
      "legendFormat": "p99 {{acquirer}}",
      "datasource": {
       "type": "prometheus",
@@ -672,7 +672,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))",
+     "expr": "sum by (service_name) (rate(traces_span_metrics_duration_milliseconds_count{span_kind=\"SPAN_KIND_SERVER\"}[2m]))",
      "legendFormat": "{{service_name}}",
      "datasource": {
       "type": "prometheus",
@@ -724,7 +724,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\",status_code=\"STATUS_CODE_ERROR\"}[$__rate_interval])) / sum by (service_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval]))",
+     "expr": "(sum by (service_name) (rate(traces_span_metrics_duration_milliseconds_count{span_kind=\"SPAN_KIND_SERVER\",status_code=\"STATUS_CODE_ERROR\"}[2m])) or 0 * sum by (service_name) (rate(traces_span_metrics_duration_milliseconds_count{span_kind=\"SPAN_KIND_SERVER\"}[2m]))) / sum by (service_name) (rate(traces_span_metrics_duration_milliseconds_count{span_kind=\"SPAN_KIND_SERVER\"}[2m]))",
      "legendFormat": "{{service_name}}",
      "datasource": {
       "type": "prometheus",
@@ -776,7 +776,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "histogram_quantile(0.95, sum by (le, service_name) (rate(traces_span_metrics_duration_milliseconds_bucket{span_kind=\"SPAN_KIND_SERVER\"}[$__rate_interval])))",
+     "expr": "histogram_quantile(0.95, sum by (le, service_name) (rate(traces_span_metrics_duration_milliseconds_bucket{span_kind=\"SPAN_KIND_SERVER\"}[2m])))",
      "legendFormat": "{{service_name}}",
      "datasource": {
       "type": "prometheus",
@@ -828,7 +828,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum by (client, server) (rate(traces_service_graph_request_total[$__rate_interval]))",
+     "expr": "sum by (client, server) (rate(traces_service_graph_request_total[2m]))",
      "legendFormat": "{{client}} \u2192 {{server}}",
      "datasource": {
       "type": "prometheus",
@@ -880,7 +880,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum by (service_name, span_name) (rate(traces_span_metrics_calls_total{span_kind=\"SPAN_KIND_CLIENT\"}[$__rate_interval]))",
+     "expr": "sum by (service_name, span_name) (rate(traces_span_metrics_duration_milliseconds_count{span_kind=\"SPAN_KIND_CLIENT\"}[2m]))",
      "legendFormat": "{{service_name}} \u00b7 {{span_name}}",
      "datasource": {
       "type": "prometheus",
@@ -945,7 +945,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum by (reason) (rate(cpay_refunds_total[$__rate_interval]))*60",
+     "expr": "sum by (reason) (rate(cpay_refunds_total[2m]))*60",
      "legendFormat": "refund \u00b7 {{reason}}",
      "datasource": {
       "type": "prometheus",
@@ -955,7 +955,7 @@
     },
     {
      "refId": "B",
-     "expr": "sum by (reason_code) (rate(cpay_chargebacks_total[$__rate_interval]))*60",
+     "expr": "sum by (reason_code) (rate(cpay_chargebacks_total[2m]))*60",
      "legendFormat": "chargeback \u00b7 {{reason_code}}",
      "datasource": {
       "type": "prometheus",
@@ -1059,7 +1059,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum by (merchant, status) (rate(cpay_webhooks_total[$__rate_interval]))*60",
+     "expr": "sum by (merchant, status) (rate(cpay_webhooks_total[2m]))*60",
      "legendFormat": "{{merchant}} \u00b7 {{status}}",
      "datasource": {
       "type": "prometheus",
