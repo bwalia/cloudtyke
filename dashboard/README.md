@@ -20,11 +20,12 @@ Both bind to `127.0.0.1` only, because the console acts as the seeded admin iden
 
 ### From another device on your LAN
 
-LAN mode is opt-in and always password-protected. The browser prompts for it, and any user name works:
+LAN mode is opt-in and always protected by a sign-in prompt. `CLOUDTYKE_DASHBOARD_USER` is optional; if you leave it unset, any user name is accepted:
 
 ```bash
-CLOUDTYKE_DASHBOARD_PASSWORD='pick-something' make -C azure-emulator dashboard-lan   # Docker
-CLOUDTYKE_DASHBOARD_PASSWORD='pick-something' npm run start:lan                     # from source (after npm run build)
+export CLOUDTYKE_DASHBOARD_USER=lab-admin CLOUDTYKE_DASHBOARD_PASSWORD='pick-something'
+make -C azure-emulator dashboard-lan   # Docker
+npm run start:lan                      # or from source (after npm run build)
 ```
 
 Then open `http://<your-mac's-LAN-IP>:4310`. You can find the IP with `ipconfig getifaddr en0`. Only the console is

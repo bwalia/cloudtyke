@@ -73,7 +73,7 @@ dashboard: ## start the emulator + web console on http://localhost:4310 (Docker)
 dashboard-lan: ## like dashboard, reachable from your LAN; needs CLOUDTYKE_DASHBOARD_PASSWORD
 	@test -n "$$CLOUDTYKE_DASHBOARD_PASSWORD" || (echo "Set CLOUDTYKE_DASHBOARD_PASSWORD first, e.g. CLOUDTYKE_DASHBOARD_PASSWORD=pick-something make dashboard-lan" && exit 1)
 	CLOUDTYKE_DASHBOARD_BIND=0.0.0.0 $(COMPOSE) --profile dashboard up -d --build --wait
-	@echo "CloudTyke console: http://$$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | cut -d' ' -f1):$${CLOUDTYKE_DASHBOARD_PORT:-4310} (any user name + your password)"
+	@echo "CloudTyke console: http://$$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | cut -d' ' -f1):$${CLOUDTYKE_DASHBOARD_PORT:-4310} (sign in with $${CLOUDTYKE_DASHBOARD_USER:-any user name} and your password)"
 
 dashboard-dev: ## run the web console from source with hot reload (needs make up and Node 20+)
 	cd ../dashboard && npm install && npm run dev

@@ -84,6 +84,7 @@ services:
       CLOUDTYKE_DOMAIN: ${CLOUDTYKE_DOMAIN:-cloudtyke.local}
       CLOUDTYKE_CA_FILE: /cloudtyke-data/certs/ca.pem
       CLOUDTYKE_ADMIN_TOKEN: ${CLOUDTYKE_ADMIN_TOKEN:-}
+      CLOUDTYKE_DASHBOARD_USER: ${CLOUDTYKE_DASHBOARD_USER:-}
       CLOUDTYKE_DASHBOARD_PASSWORD: ${CLOUDTYKE_DASHBOARD_PASSWORD:-}
     ports:
       # localhost by default: the dashboard acts as the seeded admin identities.

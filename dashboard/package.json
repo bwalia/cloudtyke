@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -H 127.0.0.1 -p 4310",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "start:lan": "node scripts/require-password.mjs && next start -H 0.0.0.0 -p 4310"
   },
   "dependencies": {
