@@ -39,6 +39,20 @@ pod does. Notes: plain HTTP (the password crosses your LAN unencrypted, fine for
 changes the name; and macOS may resolve `.local` names via Bonjour first, so a hosts entry can take a few seconds
 on the first lookup.
 
+#### Troubleshooting: the name doesn't open on another machine
+
+First test by IP from that machine: `curl -s -o /dev/null -w '%{http_code}\n' http://192.168.1.177/`.
+
+| Result | Meaning | Fix |
+|---|---|---|
+| `401` by IP, but the name fails | The app is reachable, but the name doesn't resolve on that machine | Add the hosts line (above). On macOS, check it with `dscacheutil -q host -a name hello.cloudtyke.local` (it should print the IP), then flush the cache: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder` |
+| `curl` gets `401` by name, but the browser fails | The browser is switching to `https://`, and nothing serves HTTPS | Type the full `http://hello.cloudtyke.local`. If needed, turn off *Always use secure connections* (Chrome) or *HTTPS-Only Mode* (Firefox) for this site |
+| The name resolves, but only sometimes | macOS asks Bonjour (mDNS) about `.local` names before it reads the hosts file | Use another suffix: `HELLO_HOSTNAME=hello.cloudtyke.test`, plus a hosts line with that name. Any name works, because the proxy doesn't check it |
+| Timeout or connection refused, even by IP | The request never reaches the app | On the host: check that `docker ps` shows `hello-web-proxy` on `0.0.0.0:80`, that the macOS firewall allows incoming connections, and that both machines are on the same network (guest Wi-Fi often isolates clients) |
+| `curl: (6)` with `--resolve` working | The same as the first row: only the name lookup fails | Use `curl --resolve hello.cloudtyke.local:80:192.168.1.177 -u intern:<password> http://hello.cloudtyke.local/` to prove the server side works before you edit hosts files |
+
+On this machine itself, use `127.0.0.1  hello.cloudtyke.local` in `/etc/hosts`, or just open http://localhost.
+
 ## Where things run
 
 | Piece | Runs where | Why |
