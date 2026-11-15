@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -80,7 +81,7 @@ func Register(s *arm.Server) {
 	// ---------------------------------------------------------------- PostgreSQL flexible server
 	reg(pg, pgVersions, []string{"flexibleServers"}, arm.KindResourceGroup,
 		"versions 13-17, Burstable / GeneralPurpose / MemoryOptimized SKUs, storage and backup limits, zone-redundant HA (not on Burstable), private access via a delegated subnet + *.postgres.database.azure.com private DNS zone, Entra auth, start / stop / restart",
-		arm.Generic(arm.GenericOptions{Tracked: true, Async: true, Prepare: preparePG(s),
+		arm.Generic(arm.GenericOptions{Tracked: true, Async: true, CreateStatus: 202, PatchStatus: 202, Prepare: preparePG(s),
 			Present: func(q *arm.Request, b map[string]any) map[string]any {
 				b = arm.DeepCopy(b)
 				delete(props(b), "administratorLoginPassword")
@@ -90,7 +91,7 @@ func Register(s *arm.Server) {
 				"restart": pgPower(""), "stop": pgPower("Stopped"), "start": pgPower("Ready"),
 			}}))
 	reg(pg, pgVersions, []string{"flexibleServers", "databases"}, arm.KindResourceGroup, "databases with charset / collation",
-		arm.Generic(arm.GenericOptions{Async: true, Prepare: func(q *arm.Request, body, existing map[string]any) error {
+		arm.Generic(arm.GenericOptions{Async: true, CreateStatus: 202, Prepare: func(q *arm.Request, body, existing map[string]any) error {
 			p := props(body)
 			setDefault(p, "charset", "UTF8")
 			setDefault(p, "collation", "en_US.utf8")
@@ -113,18 +114,26 @@ func Register(s *arm.Server) {
 			}
 			return nil
 		}}))
-	reg(pg, pgVersions, []string{"flexibleServers", "configurations"}, arm.KindResourceGroup, "server parameters (e.g. require_secure_transport, log_min_duration_statement)",
-		arm.Generic(arm.GenericOptions{Prepare: func(q *arm.Request, body, existing map[string]any) error {
+	reg(pg, pgVersions, []string{"flexibleServers", "configurations"}, arm.KindResourceGroup, "server parameters (e.g. require_secure_transport, log_min_duration_statement); every parameter exists, so PATCH sets it",
+		arm.Generic(arm.GenericOptions{Async: true, CreateStatus: 202, PatchStatus: 202, PatchCreates: true, Prepare: func(q *arm.Request, body, existing map[string]any) error {
 			p := props(body)
+			// Clients "delete" a parameter by resetting it: PATCH with
+			// source=system-default, or with an empty value.
+			if strings.EqualFold(strOf(p["source"]), "system-default") || (q.R.Method == http.MethodPatch && strOf(p["value"]) == "") {
+				p["source"] = "system-default"
+				// reset to the default (what clients send when a parameter is "deleted")
+				p["value"] = strOf(p["defaultValue"])
+				return nil
+			}
 			if strOf(p["value"]) == "" {
 				return invalid("Configuration '%s' needs a value.", q.ID.Name())
 			}
-			setDefault(p, "source", "user-override")
+			p["source"] = "user-override"
 			setDefault(p, "dataType", "String")
 			return nil
 		}}))
 	reg(pg, pgVersions, []string{"flexibleServers", "administrators"}, arm.KindResourceGroup, "Microsoft Entra administrators (user, group or service principal); needs Entra auth enabled",
-		arm.Generic(arm.GenericOptions{Prepare: func(q *arm.Request, body, existing map[string]any) error {
+		arm.Generic(arm.GenericOptions{Async: true, CreateStatus: 202, Prepare: func(q *arm.Request, body, existing map[string]any) error {
 			srv, _ := q.S.LoadResource(q.ID.ParentPath(pg, q.Reg.Types))
 			if sub(props(srv), "authConfig")["activeDirectoryAuth"] != "Enabled" {
 				return invalid("Microsoft Entra authentication is not enabled on the server (authConfig.activeDirectoryAuth).")
@@ -147,7 +156,7 @@ func Register(s *arm.Server) {
 	// ---------------------------------------------------------------- Cosmos DB
 	reg(cosmos, cosmosVersions, []string{"databaseAccounts"}, arm.KindResourceGroup,
 		"NoSQL and MongoDB APIs, consistency levels (bounded staleness limits), locations with failover priorities, serverless / free tier, automatic failover, keys and connection strings",
-		arm.Generic(arm.GenericOptions{Tracked: true, Async: true, Prepare: prepareCosmos(s),
+		arm.Generic(arm.GenericOptions{Tracked: true, Async: true, CreateStatus: 200, Prepare: prepareCosmos(s),
 			Present: func(q *arm.Request, b map[string]any) map[string]any {
 				b = arm.DeepCopy(b)
 				delete(props(b), "_keys")
@@ -170,8 +179,24 @@ func Register(s *arm.Server) {
 					q.Empty(202)
 				},
 			}}))
+	// HEAD /providers/Microsoft.DocumentDB/databaseAccountNames/{name}: 200 when taken, 404 when free.
+	reg(cosmos, cosmosVersions, []string{"databaseAccountNames"}, arm.KindTenant, "HEAD: account names are global", func(q *arm.Request) {
+		if q.R.Method != http.MethodHead && q.R.Method != http.MethodGet {
+			q.Error(405, "MethodNotAllowed", "The requested method is not allowed.")
+			return
+		}
+		for _, sb := range s.H.Subscriptions() {
+			for _, m := range s.ListAcrossResourceGroups(sb.ID, cosmos+"/databaseAccounts") {
+				if strings.EqualFold(strOf(m["name"]), q.ID.Name()) {
+					q.Empty(200)
+					return
+				}
+			}
+		}
+		q.Empty(404)
+	})
 	child := func(types []string, notes string, prep func(q *arm.Request, body map[string]any) error) {
-		reg(cosmos, cosmosVersions, types, arm.KindResourceGroup, notes, arm.Generic(arm.GenericOptions{Async: true,
+		reg(cosmos, cosmosVersions, types, arm.KindResourceGroup, notes, arm.Generic(arm.GenericOptions{Async: true, CreateStatus: 202,
 			Prepare: func(q *arm.Request, body, existing map[string]any) error {
 				acct, _ := q.S.LoadResource(q.ID.Scope + "/providers/" + cosmos + "/databaseAccounts/" + q.ID.Names[0])
 				api := "Sql"
@@ -567,7 +592,7 @@ func cosmosConnStrings(s *arm.Server) arm.Handler {
 			host := name + ".mongo.cosmos." + s.Cfg.Domain + ":10255"
 			for i, d := range []string{"Primary MongoDB Connection String", "Secondary MongoDB Connection String", "Primary Read-Only MongoDB Connection String", "Secondary Read-Only MongoDB Connection String"} {
 				list = append(list, map[string]any{"description": d, "keyKind": []string{"Primary", "Secondary", "PrimaryReadonly", "SecondaryReadonly"}[i], "type": "MongoDB",
-					"connectionString": "mongodb://" + name + ":" + strOf(k[i]) + "@" + host + "/?ssl=true&replicaSet=globaldb&retrywrites=false&maxIdleTimeMS=120000&appName=@" + name + "@"})
+					"connectionString": "mongodb://" + name + ":" + url.QueryEscape(strOf(k[i])) + "@" + host + "/?ssl=true&replicaSet=globaldb&retrywrites=false&maxIdleTimeMS=120000&appName=@" + name + "@"})
 			}
 		} else {
 			ep := strOf(props(a)["documentEndpoint"])

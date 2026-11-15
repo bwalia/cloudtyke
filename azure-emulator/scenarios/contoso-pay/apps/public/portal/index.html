@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contoso Pay · Processor Console</title>
+<style>
+  :root { --bg:#0b1020; --panel:#121a2f; --line:#24304d; --ink:#e6eaf3; --muted:#8a96b3; --ok:#22c55e; --warn:#f59e0b; --bad:#ef4444; --info:#60a5fa; --violet:#a78bfa; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:13px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--ink); }
+  header { display:flex; align-items:center; gap:14px; padding:14px 24px; border-bottom:1px solid var(--line); background:#0e1528; }
+  header b { font-size:16px; } header .env { font-size:11px; padding:2px 8px; border-radius:99px; background:#7f1d1d; color:#fecaca; }
+  header .live { margin-left:auto; color:var(--muted); display:flex; gap:14px; align-items:center; }
+  header a { color:var(--info); text-decoration:none; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--ok); display:inline-block; margin-right:6px; animation:pulse 1.5s infinite; }
+  @keyframes pulse { 50% { opacity:.3 } }
+  .grid { display:grid; gap:14px; padding:16px 24px; }
+  .kpis { grid-template-columns:repeat(6,1fr); }
+  .kpi, .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .kpi .l { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; } .kpi .v { font-size:24px; font-weight:700; margin-top:4px; font-variant-numeric:tabular-nums; }
+  .main { grid-template-columns:2fr 1fr; padding-top:0; }
+  .panel h3 { margin:0 0 10px; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; display:flex; justify-content:space-between; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th { text-align:left; color:var(--muted); font-weight:500; font-size:11px; padding:4px 6px; border-bottom:1px solid var(--line); }
+  td { padding:5px 6px; border-bottom:1px solid #1a2440; white-space:nowrap; }
+  tr.new td { animation:flash 1.6s ease-out; } @keyframes flash { from { background:#1e3a8a66 } }
+  .pill { padding:1px 8px; border-radius:99px; font-size:11px; font-weight:600; }
+  .captured,.settled { background:#14532d; color:#bbf7d0; } .authorized { background:#1e3a8a; color:#bfdbfe; } .declined { background:#7f1d1d; color:#fecaca; }
+  .refunded,.partially_refunded { background:#3f3f46; color:#e4e4e7; } .chargeback { background:#581c87; color:#e9d5ff; }
+  .risk { display:inline-block; width:46px; height:6px; background:#1f2937; border-radius:3px; position:relative; vertical-align:middle; margin-right:6px; }
+  .risk i { position:absolute; left:0; top:0; bottom:0; border-radius:3px; }
+  a.trace { color:var(--violet); text-decoration:none; font-size:11px; } a.trace:hover { text-decoration:underline; }
+  .bar { height:8px; background:var(--info); border-radius:4px; } .muted { color:var(--muted); }
+  .side { display:grid; gap:14px; align-content:start; }
+  .scroll { max-height:520px; overflow:auto; }
+  .file { color:var(--info); cursor:pointer; } pre { background:#060a14; padding:10px; border-radius:8px; max-height:220px; overflow:auto; font-size:11px; }
+</style>
+</head>
+<body>
+<header>
+  <b>Contoso Pay</b><span class="muted">Processor Console</span><span class="env">PROD · CDE</span>
+  <div class="live"><span><span class="dot"></span>Live · last 15 min</span><a id="grafana" target="_blank">Grafana ↗</a><a id="jaeger" target="_blank">Jaeger ↗</a></div>
+</header>
+<div class="grid kpis" id="kpis"></div>
+<div class="grid main">
+  <div class="panel"><h3>Live payments <span id="count" class="muted"></span></h3>
+    <div class="scroll"><table><thead><tr><th>Time</th><th>Payment</th><th>Merchant</th><th>Amount</th><th>Card</th><th>Status</th><th>Risk</th><th>Acquirer</th><th></th></tr></thead><tbody id="feed"></tbody></table></div>
+  </div>
+  <div class="side">
+    <div class="panel"><h3>Merchants</h3><table id="merchants"></table></div>
+    <div class="panel"><h3>Decline reasons</h3><div id="declines"></div></div>
+    <div class="panel"><h3>Risk review queue</h3><table id="review"></table></div>
+  </div>
+</div>
+<div class="grid main" style="padding-top:0">
+  <div class="panel"><h3>Settlement batches <span class="muted">Azure Files · settlement-outbound</span></h3><table id="batches"></table><div id="filebody"></div></div>
+  <div class="panel"><h3>Chargebacks <span class="muted">evidence in Blob</span></h3><table id="chargebacks"></table></div>
+</div>
+<script>
+let JAEGER = '', seen = new Set();
+const $ = (id) => document.getElementById(id);
+const money = (m, c='GBP') => new Intl.NumberFormat('en-GB',{style:'currency',currency:c}).format(Number(m)/100);
+const time = (t) => new Date(t).toLocaleTimeString('en-GB');
+const riskColor = (s) => s >= 80 ? 'var(--bad)' : s >= 55 ? 'var(--warn)' : 'var(--ok)';
+const traceLink = (id) => id ? `<a class="trace" target="_blank" href="${JAEGER}/trace/${id}">trace ↗</a>` : '';
+async function feed() {
+  const rows = await (await fetch('/api/feed')).json();
+  $('feed').innerHTML = rows.map(p => `<tr class="${seen.has(p.id)?'':'new'}">
+    <td class="muted">${time(p.created_at)}</td><td>${p.id.slice(0,14)}…</td><td>${p.merchant_name}</td>
+    <td>${money(p.amount_minor,p.currency)}</td><td class="muted">${p.card_brand} ${p.card_last4} · ${p.card_country}</td>
+    <td><span class="pill ${p.status}">${p.status.replace('_',' ')}</span>${p.decline_reason?` <span class="muted">${p.decline_reason}</span>`:''}</td>
+    <td><span class="risk"><i style="width:${p.risk_score}%;background:${riskColor(p.risk_score)}"></i></span>${p.risk_score}</td>
+    <td class="muted">${p.acquirer||'—'}</td><td>${traceLink(p.trace_id)}</td></tr>`).join('');
+  rows.forEach(p => seen.add(p.id));
+}
+async function summary() {
+  const s = await (await fetch('/api/summary')).json();
+  const k = s.kpi, rate = k.total ? (100*k.approved/k.total).toFixed(1) : '0.0';
+  $('kpis').innerHTML = [['Payments',k.total],['Authorisation rate',rate+'%'],['Volume (GBP)',money(k.volume_gbp)],['Avg risk score',k.avg_risk],['Blocked by risk',k.risk_blocked],['Refunds',`${s.refunds.n} · ${money(s.refunds.amount)}`]]
+    .map(([l,v]) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`).join('');
+  $('merchants').innerHTML = '<tr><th>Merchant</th><th>Payments</th><th>Volume</th><th>Auth rate</th></tr>' + s.byMerchant.map(m => `<tr><td>${m.name}</td><td>${m.n}</td><td>${money(m.volume,m.currency)}</td><td>${m.auth_rate}%</td></tr>`).join('');
+  const max = Math.max(1, ...s.declines.map(d => d.n));
+  $('declines').innerHTML = s.declines.map(d => `<div style="display:grid;grid-template-columns:130px 1fr 30px;gap:8px;align-items:center;margin:4px 0"><span>${d.reason}</span><div class="bar" style="width:${100*d.n/max}%;background:${d.reason==='risk_blocked'?'var(--bad)':'var(--info)'}"></div><span>${d.n}</span></div>`).join('') || '<span class="muted">none</span>';
+  $('review').innerHTML = '<tr><th>Payment</th><th>Amount</th><th>Risk</th><th>IP / card</th><th></th></tr>' + s.review.map(r => `<tr><td>${r.id.slice(0,12)}…</td><td>${money(r.amount_minor,r.currency)}</td><td style="color:${riskColor(r.risk_score)}">${r.risk_score}</td><td>${r.ip_country} / ${r.card_country}</td><td>${traceLink(r.trace_id)}</td></tr>`).join('');
+  $('batches').innerHTML = '<tr><th>Batch</th><th>Merchant</th><th>Payments</th><th>Gross</th><th>Fees</th><th>Net</th><th>File</th></tr>' + s.batches.map(b => `<tr><td>${b.id}</td><td>${b.merchant_name}</td><td>${b.payment_count}</td><td>${money(b.gross_minor,b.currency)}</td><td>${money(b.fees_minor,b.currency)}</td><td>${money(b.net_minor,b.currency)}</td><td class="file" data-p="${b.file_path}">${b.file_path.split('/').pop()}</td></tr>`).join('');
+  document.querySelectorAll('.file').forEach(el => el.onclick = async () => { const t = await (await fetch('/api/settlement-file?path=' + encodeURIComponent(el.dataset.p))).text(); $('filebody').innerHTML = `<pre>${el.dataset.p}\n\n${t.replace(/</g,'&lt;')}</pre>`; });
+  $('chargebacks').innerHTML = '<tr><th>Chargeback</th><th>Merchant</th><th>Reason</th><th>Amount</th><th>Status</th></tr>' + s.chargebacks.map(c => `<tr><td>${c.id.slice(0,12)}…</td><td>${c.merchant_id}</td><td>${c.reason_code}</td><td>${money(c.amount_minor,c.currency)}</td><td><span class="pill chargeback">${c.status.replace('_',' ')}</span></td></tr>`).join('');
+}
+fetch('/api/config').then(r => r.json()).then(c => { JAEGER = c.jaeger; $('jaeger').href = c.jaeger; $('grafana').href = c.grafana + '/d/contoso-pay'; });
+const tick = () => Promise.all([feed(), summary()]).catch(() => {});
+tick(); setInterval(feed, 1500); setInterval(summary, 4000);
+</script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+# Contoso Pay live demo: six services, the data stores standing in for Azure
+# Database for PostgreSQL and Cosmos DB for MongoDB, and an OpenTelemetry stack
+# (collector -> Jaeger, Prometheus, Loki -> Grafana).
+#
+# Start it with scripts/up.sh: it deploys the Terraform scenario to the
+# emulator first and writes .env (resource names, the local-dev service
+# principal, and the database credentials read back from Key Vault).
+name: contoso-pay
+
+x-app: &app
+  build: .
+  image: contoso-pay/apps:dev
+  restart: unless-stopped
+  env_file: .env
+  user: "65532:65532"
+  dns: ["${CLOUDTYKE_DNS_IP:-10.253.53.53}"]
+  networks: [cloudtyke]
+  volumes:
+    - cloudtyke-data:/cloudtyke-data:ro
+
+x-env: &env
+  NODE_EXTRA_CA_CERTS: /cloudtyke-data/certs/ca.pem # trust the emulator's TLS
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  PGSSL_DISABLE: "true"        # Azure enforces TLS; the stand-in container has none
+  MONGO_LOCAL_STANDIN: "true"  # likewise for the Cosmos DB stand-in
+  GATEWAY_URL: http://gateway:8080
+  RISK_URL: http://risk-engine:8080
+  STOREFRONT_URL: http://storefront:8080
+  JAEGER_UI_URL: http://localhost:${JAEGER_PORT:-4731}
+  GRAFANA_URL: http://localhost:${GRAFANA_PORT:-4730}
+
+services:
+  # ------------------------------------------------------------ data stores
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cpayadmin
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?run scripts/up.sh}
+      POSTGRES_DB: payments
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cpayadmin -d payments"]
+      interval: 3s
+      retries: 30
+    volumes: [pgdata:/var/lib/postgresql/data]
+    networks:
+      cloudtyke:
+        aliases: ["${POSTGRES_FQDN:?run scripts/up.sh}"] # the server's FQDN, as stored in Key Vault
+
+  mongo:
+    image: mongo:8.0
+    restart: unless-stopped
+    command: ["--port", "10255", "--quiet"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${COSMOS_ACCOUNT:?run scripts/up.sh}
+      MONGO_INITDB_ROOT_PASSWORD: ${COSMOS_KEY:?run scripts/up.sh}
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "10255", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      retries: 30
+    volumes: [mongodata:/data/db]
+    networks:
+      cloudtyke:
+        aliases: ["${COSMOS_ACCOUNT}.mongo.cosmos.${CLOUDTYKE_DOMAIN:-cloudtyke.local}"]
+
+  # ------------------------------------------------------------ services
+  gateway:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE: gateway
+      OTEL_SERVICE_NAME: payment-gateway
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=contoso-pay,service.version=1.42.0,deployment.environment.name=prod,team=payments-core,cloud.region=uksouth
+    depends_on: { postgres: { condition: service_healthy }, mongo: { condition: service_healthy } }
+    ports: ["${CPAY_BIND:-127.0.0.1}:${GATEWAY_PORT:-4702}:8080"]
+
+  risk-engine:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE: risk-engine
+      OTEL_SERVICE_NAME: risk-engine
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=contoso-pay,service.version=0.18.3,deployment.environment.name=prod,team=risk-and-fraud,cloud.region=uksouth
+    depends_on: { mongo: { condition: service_healthy } }
+
+  storefront:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE: storefront
+      OTEL_SERVICE_NAME: northwind-storefront
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=northwind-airways,service.version=3.7.1,deployment.environment.name=prod,team=merchant-experience,cloud.region=uksouth
+    ports: ["${CPAY_BIND:-127.0.0.1}:${STOREFRONT_PORT:-4701}:8080"]
+
+  processor-portal:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE: processor-portal
+      OTEL_SERVICE_NAME: processor-portal
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=contoso-pay,service.version=2.3.0,deployment.environment.name=prod,team=merchant-experience,cloud.region=uksouth
+    ports: ["${CPAY_BIND:-127.0.0.1}:${PORTAL_PORT:-4703}:8080"]
+
+  settlement-batch:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE: settlement-batch
+      OTEL_SERVICE_NAME: settlement-batch
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=contoso-pay,service.version=5.0.2,deployment.environment.name=prod,team=data-and-settlement,cloud.region=uksouth
+      SETTLEMENT_INTERVAL_MS: ${SETTLEMENT_INTERVAL_MS:-120000}
+    depends_on: { gateway: { condition: service_started } }
+
+  traffic-generator:
+    <<: *app
+    environment:
+      <<: *env
+      SERVICE: traffic-generator
+      OTEL_SERVICE_NAME: traffic-generator
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=synthetic,deployment.environment.name=prod
+      TRAFFIC_TPS: ${TRAFFIC_TPS:-1.5}
+    depends_on: { gateway: { condition: service_started }, storefront: { condition: service_started } }
+
+  # ------------------------------------------------------------ OpenTelemetry
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.165.0
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes: ["./otel/collector.yaml:/etc/otelcol/config.yaml:ro"]
+    networks: [cloudtyke]
+
+  jaeger:
+    image: jaegertracing/jaeger:2.23.0
+    restart: unless-stopped
+    networks: [cloudtyke]
+    ports: ["${CPAY_BIND:-127.0.0.1}:${JAEGER_PORT:-4731}:16686"]
+
+  prometheus:
+    image: prom/prometheus:v3.12.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--enable-feature=exemplar-storage"]
+    volumes: ["./otel/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    networks: [cloudtyke]
+    ports: ["${CPAY_BIND:-127.0.0.1}:${PROMETHEUS_PORT:-4732}:9090"]
+
+  loki:
+    image: grafana/loki:3.7.10
+    restart: unless-stopped
+    networks: [cloudtyke]
+
+  grafana:
+    image: grafana/grafana:13.2.6
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?run scripts/up.sh}
+      GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS:-true}
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/contoso-pay.json
+    volumes:
+      - ./otel/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./otel/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks: [cloudtyke]
+    ports: ["${CPAY_BIND:-127.0.0.1}:${GRAFANA_PORT:-4730}:3000"]
+
+networks:
+  cloudtyke:
+    external: true
+    name: cloudtyke-azure_cloudtyke
+
+volumes:
+  cloudtyke-data:
+    external: true
+    name: cloudtyke-azure_cloudtyke-data
+  pgdata:
+  mongodata:

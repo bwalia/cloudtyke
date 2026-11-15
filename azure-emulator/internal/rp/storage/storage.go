@@ -42,7 +42,7 @@ func Register(s *arm.Server) *RP {
 		s.Registry.Register(&arm.TypeRegistration{Namespace: ns, Types: types, APIVersions: versions, Scopes: []arm.ScopeKind{scope}, Phase: 2, Notes: notes, Handler: h})
 	}
 	reg([]string{"storageAccounts"}, arm.KindResourceGroup, "globally unique 3-24 lowercase names, SKU / kind rules, TLS, HTTPS-only, public blob access, shared key access, network ACLs, endpoints for blob/file/queue/table/dfs/web, listKeys / regenerateKey",
-		arm.Generic(arm.GenericOptions{Tracked: true, Async: true, Prepare: rp.prepareAccount, Present: presentAccount,
+		arm.Generic(arm.GenericOptions{Tracked: true, Async: true, CreateStatus: 202, DeleteStatus: 200, Prepare: rp.prepareAccount, Present: presentAccount,
 			Actions: map[string]arm.Handler{"listKeys": rp.listKeys, "regenerateKey": rp.regenerateKey},
 			AfterWrite: func(q *arm.Request, b map[string]any) {
 				for _, svc := range []string{"blobServices", "fileServices", "queueServices", "tableServices"} {
@@ -84,7 +84,7 @@ func Register(s *arm.Server) *RP {
 	reg([]string{"storageAccounts", "queueServices", "queues"}, arm.KindResourceGroup, "queues (control plane)", arm.Generic(arm.GenericOptions{}))
 	reg([]string{"storageAccounts", "tableServices", "tables"}, arm.KindResourceGroup, "tables (control plane)", arm.Generic(arm.GenericOptions{}))
 	reg([]string{"storageAccounts", "managementPolicies"}, arm.KindResourceGroup, "lifecycle management rules (tier to cool/archive, delete after N days)",
-		arm.Generic(arm.GenericOptions{Prepare: func(q *arm.Request, body, existing map[string]any) error {
+		arm.Generic(arm.GenericOptions{CreateStatus: 200, Prepare: func(q *arm.Request, body, existing map[string]any) error {
 			if q.ID.Name() != "default" {
 				return arm.BadRequest("InvalidResourceName", "The only management policy name is 'default'.")
 			}
@@ -96,6 +96,23 @@ func Register(s *arm.Server) *RP {
 			return nil
 		}}))
 	reg([]string{"checkNameAvailability"}, arm.KindSubscription, "POST: storage account names are global", rp.checkName)
+	// accountMigrations/default: redundancy migrations (LRS <-> ZRS). The emulator
+	// applies SKU changes at once, so the latest migration is always complete.
+	reg([]string{"storageAccounts", "accountMigrations"}, arm.KindResourceGroup, "GET default: migration status (always Complete; SKU changes apply immediately)",
+		func(q *arm.Request) {
+			if q.R.Method != http.MethodGet {
+				q.Error(405, "MethodNotAllowed", "Start a migration by changing the account SKU.")
+				return
+			}
+			acct, ok := q.S.LoadResource(q.ID.Scope + "/providers/" + ns + "/storageAccounts/" + q.ID.Names[0])
+			if !ok || q.ID.Name() != "default" {
+				q.NotFound()
+				return
+			}
+			sku, _ := acct["sku"].(map[string]any)
+			q.JSON(200, map[string]any{"id": strOf(acct["id"]) + "/accountMigrations/default", "name": "default", "type": ns + "/storageAccounts/accountMigrations",
+				"properties": map[string]any{"targetSkuName": strOf(sku["name"]), "migrationStatus": "Complete"}})
+		})
 	return rp
 }
 

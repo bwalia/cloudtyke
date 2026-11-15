@@ -344,6 +344,7 @@ func (e *Engine) newTarget(id, typ string, body map[string]any, params map[strin
 	if rg != "" {
 		if m, ok := e.s.LoadResource("/subscriptions/" + sub + "/resourceGroups/" + rg); ok {
 			t.rgLoc = strOf(m["location"])
+			t.rgTags, _ = m["tags"].(map[string]any)
 		} else if strings.EqualFold(typ, "Microsoft.Resources/subscriptions/resourceGroups") {
 			t.rgLoc = strOf(body["location"])
 		}

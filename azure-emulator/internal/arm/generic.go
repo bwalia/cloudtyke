@@ -29,6 +29,17 @@ type GenericOptions struct {
 	KeepLocation bool
 	// Async makes PUT and DELETE answer 201/202 with Azure-AsyncOperation.
 	Async bool
+	// CreateStatus overrides the 201 answered on create (Storage and
+	// PostgreSQL answer 202 Accepted, and their SDK clients reject 201).
+	CreateStatus int
+	// PatchStatus overrides the 200 answered on PATCH (PostgreSQL answers 202).
+	PatchStatus int
+	// PatchCreates lets PATCH set a child that Azure treats as always present
+	// (PostgreSQL server parameters exist with defaults, so clients PATCH them).
+	PatchCreates bool
+	// DeleteStatus makes DELETE synchronous with this status (Key Vault and
+	// Storage accounts delete synchronously even though their PUT is async).
+	DeleteStatus int
 	// Prepare fills defaults / validates. body is the stored representation
 	// being built (id, name, type, location, tags, properties set already);
 	// existing is nil on create. Return an *APIError to reject.
@@ -182,7 +193,18 @@ func Generic(o GenericOptions) Handler {
 			}
 			var items []map[string]any
 			if len(reg.Types) == 1 && ScopeResourceGroup(q.ID.Scope) == "" && ScopeSubscription(q.ID.Scope) != "" {
-				items = q.S.ListAcrossResourceGroups(ScopeSubscription(q.ID.Scope), reg.FullType())
+				// Resources that live in resource groups, plus any that live at the
+				// subscription itself (custom policy definitions, ...).
+				items = q.S.Children(path)
+				seen := map[string]bool{}
+				for _, it := range items {
+					seen[strings.ToLower(strOf(it["id"]))] = true
+				}
+				for _, it := range q.S.ListAcrossResourceGroups(ScopeSubscription(q.ID.Scope), reg.FullType()) {
+					if !seen[strings.ToLower(strOf(it["id"]))] {
+						items = append(items, it)
+					}
+				}
 			} else {
 				items = q.S.Children(path)
 			}
@@ -207,7 +229,7 @@ func Generic(o GenericOptions) Handler {
 			q.JSON(200, present(existing))
 
 		case http.MethodPut, http.MethodPatch:
-			if q.R.Method == http.MethodPatch && !exists {
+			if q.R.Method == http.MethodPatch && !exists && !o.PatchCreates {
 				q.NotFound()
 				return
 			}
@@ -229,6 +251,9 @@ func Generic(o GenericOptions) Handler {
 			var body map[string]any
 			if q.R.Method == http.MethodPatch {
 				body = deepCopy(existing)
+				if body == nil { // PatchCreates
+					body = map[string]any{}
+				}
 				mergePatch(body, in)
 			} else {
 				body = in
@@ -282,6 +307,11 @@ func Generic(o GenericOptions) Handler {
 			status := 200
 			if !exists {
 				status = 201
+				if o.CreateStatus != 0 {
+					status = o.CreateStatus
+				}
+			} else if q.R.Method == http.MethodPatch && o.PatchStatus != 0 {
+				status = o.PatchStatus
 			}
 			out := present(deepCopy(body))
 			if o.Async {
@@ -315,6 +345,10 @@ func Generic(o GenericOptions) Handler {
 				}
 			}
 			q.S.DeleteTree(path)
+			if o.DeleteStatus != 0 {
+				q.Empty(o.DeleteStatus)
+				return
+			}
 			if o.Async {
 				op := q.S.Ops.Start(ScopeSubscription(path), path, "Succeeded", nil)
 				q.AsyncHeaders(op, reg.Namespace, strOf(existing["location"]))

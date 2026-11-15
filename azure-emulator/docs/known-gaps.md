@@ -44,8 +44,34 @@ something unlisted, it's a bug: please open an issue with the output of `tyke az
 
 * **ARM template deployments, what-if, deployment stacks, locks and tags-at-scope (`Microsoft.Resources/tags`)** arrive in phase 2
   or later. Until then they return 501.
-* **Management groups** exist for RBAC inheritance (seeded in `seed.yaml`). The `Microsoft.Management` API arrives in phase 3.
+* **Management groups** exist for RBAC inheritance (seeded in `seed.yaml`). `Microsoft.Management/managementGroups` is
+  read-only (list, get, `$expand=children`); creating or moving management groups is not supported.
 * **Subscriptions** come from the seed. Creating subscriptions (`Microsoft.Subscription/aliases`) is not supported yet.
+
+## Azure Policy
+
+* Evaluation covers the common condition operators, `[*]` aliases and the template functions listed in coverage.
+  `field()` reads properties by alias name with a generic mapping, so aliases that Azure maps to unusual property
+  paths can evaluate differently. `AuditIfNotExists` marks matching resources non-compliant without checking related
+  resources, `DeployIfNotExists` never deploys, and remediation tasks are not emulated.
+* Compliance is evaluated on write and on `triggerEvaluation`; there is no periodic scan.
+* Built-in policy definitions are not seeded: bring your own definitions.
+
+## Key Vault, Storage and databases
+
+* **Key Vault**: the data plane covers secrets. Keys and certificates are rejected with a clear message, and managed HSM
+  is not emulated. `publicNetworkAccess: Disabled` is enforced (`ForbiddenByConnection`), but there are no private
+  endpoints to reach such a vault through, and firewall rules (`networkAcls`) are stored without being enforced.
+* **Storage**: `publicNetworkAccess: Disabled` is enforced on the data plane, and network rules are stored without
+  being enforced (as for Key Vault). Blob (block blobs) and Azure Files work over HTTPS with Entra tokens and RBAC data actions. Shared Key
+  and SAS are rejected with `KeyBasedAuthenticationNotPermitted` or a not-supported message. Queues and tables are
+  control plane only. Lifecycle policies are stored but never move or delete data. Account SKU changes apply at once
+  (`accountMigrations` always reports `Complete`).
+* **PostgreSQL flexible server and Cosmos DB** are control plane only: the emulator returns FQDNs, keys and connection
+  strings, but no database engine listens on them. Run `postgres` / `mongo` containers under those names, as the
+  Contoso Pay scenario does.
+* **AKS with Entra ID**: tokens for the AKS server application are accepted and authorized with admin groups and
+  Azure RBAC data actions. Kubernetes `RoleBinding`s to Entra groups are not consulted.
 
 ## Planned phases: limits we already know about
 

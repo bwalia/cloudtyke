@@ -1,0 +1,6 @@
+node_modules
+.env
+*.log
+k8s
+scripts
+otel

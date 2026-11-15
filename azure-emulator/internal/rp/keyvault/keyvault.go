@@ -37,7 +37,7 @@ func Register(s *arm.Server) *RP {
 		s.Registry.Register(&arm.TypeRegistration{Namespace: ns, Types: types, APIVersions: versions, Scopes: []arm.ScopeKind{scope}, Phase: 2, Notes: notes, Handler: h})
 	}
 	reg([]string{"vaults"}, arm.KindResourceGroup, "globally unique names, standard/premium, RBAC or access policies, soft delete (7-90 days) and purge protection (cannot be turned off), network ACLs, vaultUri; deleting moves the vault to deletedVaults",
-		arm.Generic(arm.GenericOptions{Tracked: true, Async: true, Prepare: rp.prepare, Present: present,
+		arm.Generic(arm.GenericOptions{Tracked: true, Async: true, DeleteStatus: 200, Prepare: rp.prepare, Present: present,
 			OnDelete: func(q *arm.Request, existing map[string]any) error { rp.softDelete(existing); return nil }}))
 	reg([]string{"vaults", "accessPolicies"}, arm.KindResourceGroup, "PUT .../accessPolicies/add|replace|remove: merge access policy entries",
 		rp.accessPolicies)

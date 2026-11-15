@@ -29,6 +29,7 @@ type target struct {
 	typ    string         // full type, e.g. Microsoft.Storage/storageAccounts
 	rgName string
 	rgLoc  string
+	rgTags map[string]any
 	subID  string
 	params map[string]any
 }
@@ -462,8 +463,23 @@ func (p *parser) value() (any, error) {
 		}
 		v = r
 	}
-	// property access: .name
-	for p.pos < len(p.s) && p.s[p.pos] == '.' {
+	// property access: .name or ['name']
+	for p.pos < len(p.s) && (p.s[p.pos] == '.' || p.s[p.pos] == '[') {
+		if p.s[p.pos] == '[' {
+			p.pos++
+			k, err := p.value()
+			if err != nil {
+				return nil, err
+			}
+			p.ws()
+			if p.pos >= len(p.s) || p.s[p.pos] != ']' {
+				return nil, fmt.Errorf("expected ]")
+			}
+			p.pos++
+			m, _ := v.(map[string]any)
+			v, _ = lookupCI(m, fmt.Sprint(k))
+			continue
+		}
 		p.pos++
 		start := p.pos
 		for p.pos < len(p.s) && (p.s[p.pos] == '_' || p.s[p.pos] >= 'a' && p.s[p.pos] <= 'z' || p.s[p.pos] >= 'A' && p.s[p.pos] <= 'Z' || p.s[p.pos] >= '0' && p.s[p.pos] <= '9') {
@@ -518,7 +534,11 @@ func (t *target) call(name string, args []any) (any, error) {
 	case "toupper":
 		return strings.ToUpper(arg(0)), nil
 	case "resourcegroup":
-		return map[string]any{"name": t.rgName, "location": t.rgLoc}, nil
+		tags := t.rgTags
+		if tags == nil {
+			tags = map[string]any{}
+		}
+		return map[string]any{"name": t.rgName, "location": t.rgLoc, "tags": tags}, nil
 	case "subscription":
 		return map[string]any{"subscriptionId": t.subID, "id": "/subscriptions/" + t.subID}, nil
 	case "length":

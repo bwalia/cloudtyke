@@ -326,6 +326,13 @@ func init() {
 		c.Status(c.Do(get, c.ARM("/subscriptions/"+SubSandbox+"/resourceGroups/"+nodeRG, apiRes), tok, nil), 200, "", "node resource group exists")
 		g := c.Status(c.Do(get, c.ARM(id, apiAKS), tok, nil), 200, "", "read cluster")
 		c.Expect(g.Str("properties.identityProfile.kubeletidentity.objectId") != "", "kubelet identity created")
+		// Azure RBAC for Kubernetes: role assignments at a namespace scope
+		ns := id + "/namespaces/payments"
+		c.Status(c.Do(get, c.ARM(ns+"/providers/Microsoft.Authorization/roleDefinitions", apiRD), tok, nil), 200, "", "list roles at a namespace scope")
+		c.Status(c.Do(put, c.ARM(ns+"/providers/Microsoft.Authorization/roleAssignments/"+entraGUID(), apiAuth), tok, map[string]any{"properties": map[string]any{
+			"roleDefinitionId": "/subscriptions/" + SubSandbox + "/providers/Microsoft.Authorization/roleDefinitions/a7ffa36f-339b-4b5c-8bdf-e2c188b2c0eb",
+			"principalId":      ReaderSPID, "principalType": "ServicePrincipal"}}), 201, "", "RBAC Writer at a namespace scope")
+		c.Status(c.Do(get, c.ARM(rg+"/providers/Microsoft.ContainerService/managedClusters/nope/namespaces/payments/providers/Microsoft.Authorization/roleDefinitions", apiRD), tok, nil), 404, "ResourceNotFound", "namespace of a missing cluster")
 		cr := c.Status(c.Do(post, c.ARM(id+"/listClusterAdminCredential", apiAKS), tok, nil), 200, "", "admin credentials")
 		kcs, _ := cr.Body["kubeconfigs"].([]any)
 		c.Expect(len(kcs) == 1, "one kubeconfig returned")

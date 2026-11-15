@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/auth"
 	"github.com/bwalia/cloudtyke/azure-emulator/internal/store"
 )
 
@@ -30,6 +31,21 @@ func (rp *RP) KubeAPI(host string) (http.Handler, bool) {
 		for k, v := range map[string]string{"_adminToken": "admin", "_userToken": "user", "_monitorToken": "monitor"} {
 			if t := strOf(p[k]); t != "" && subtle.ConstantTimeCompare([]byte(t), []byte(tok)) == 1 {
 				role = v
+			}
+		}
+		if role == "" && tok != "" {
+			// AKS-managed Entra ID: kubelogin sends an Entra token for the AKS
+			// server application. Admin groups get cluster-admin; with Azure RBAC
+			// enabled everyone else needs a matching data action on the cluster.
+			if aad, _ := p["aadProfile"].(map[string]any); aad != nil {
+				if id, err := rp.s.Auth.VerifyBearer(tok, aksServerAppID, "api://"+aksServerAppID); err == nil {
+					var deny string
+					role, deny = rp.entraRole(c, aad, id, r)
+					if role == "" {
+						kubeStatus(w, 403, "Forbidden", deny)
+						return
+					}
+				}
 			}
 		}
 		if role == "" {
@@ -301,4 +317,81 @@ func stubPods(c map[string]any, created, nsName string) []map[string]any {
 		out = []map[string]any{}
 	}
 	return out
+}
+
+// aksServerAppID is the well-known "Azure Kubernetes Service AAD Server"
+// application that kubelogin requests tokens for (--server-id).
+const aksServerAppID = "6dae42f8-4368-4678-94ff-3960e28e3630"
+
+// entraRole authorizes an Entra identity against an AAD-enabled cluster.
+// Members of aadProfile.adminGroupObjectIDs are cluster admins. With Azure
+// RBAC, the request maps to a data action such as
+// Microsoft.ContainerService/managedClusters/apps/deployments/write.
+func (rp *RP) entraRole(c, aad map[string]any, id *auth.Identity, r *http.Request) (string, string) {
+	groups := map[string]bool{}
+	for _, g := range rp.s.Dir.TransitiveGroups(id.TenantID, id.ObjectID) {
+		groups[strings.ToLower(g)] = true
+	}
+	for _, g := range strListOf(aad["adminGroupObjectIDs"]) {
+		if groups[strings.ToLower(g)] {
+			return "admin", ""
+		}
+	}
+	who := id.UPN
+	if who == "" {
+		who = id.ObjectID
+	}
+	if aad["enableAzureRBAC"] != true {
+		return "", fmt.Sprintf("User %q cannot access the cluster: not a member of an admin group and Azure RBAC for Kubernetes is disabled (Kubernetes RBAC bindings are not emulated).", who)
+	}
+	action, ns := kubeDataAction(r)
+	scope := strOf(c["id"])
+	if ns != "" {
+		scope += "/namespaces/" + ns // namespace-scoped role assignments apply here
+	}
+	if rp.s.RBAC.Allowed(id, action, scope, true) {
+		if strings.HasSuffix(action, "/read") {
+			return "user", ""
+		}
+		return "admin", ""
+	}
+	return "", fmt.Sprintf("User %q does not have access to the resource in Azure. Update role assignment to allow access. Action: %s", who, action)
+}
+
+// kubeDataAction maps a Kubernetes API request to an AKS Azure RBAC data
+// action: /apis/apps/v1/namespaces/x/deployments -> managedClusters/apps/deployments/read.
+func kubeDataAction(r *http.Request) (string, string) {
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	group, rest := "", parts
+	switch {
+	case len(parts) >= 2 && parts[0] == "api":
+		rest = parts[2:]
+	case len(parts) >= 3 && parts[0] == "apis":
+		group, rest = parts[1], parts[3:]
+	}
+	ns := ""
+	if len(rest) >= 2 && rest[0] == "namespaces" {
+		ns = rest[1]
+		if len(rest) == 2 {
+			rest = []string{"namespaces"}
+		} else {
+			rest = rest[2:]
+		}
+	}
+	resource := "namespaces"
+	if len(rest) > 0 && rest[0] != "" {
+		resource = rest[0]
+	}
+	verb := "read"
+	switch r.Method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch:
+		verb = "write"
+	case http.MethodDelete:
+		verb = "delete"
+	}
+	base := "Microsoft.ContainerService/managedClusters/"
+	if group != "" {
+		base += group + "/"
+	}
+	return base + resource + "/" + verb, ns
 }
