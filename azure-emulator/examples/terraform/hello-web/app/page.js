@@ -44,10 +44,10 @@ markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5
 
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Entra ID workload identity sequence" class="diagram">
 <defs>${markers}</defs>
-<style>.ht{font:600 14px system-ui,sans-serif;fill:#fff}.hs{font:11px ui-monospace,monospace;fill:#fff;opacity:.9}
-.ml{font:600 12.5px system-ui,sans-serif;fill:${C.ink}}.ms{font:11px ui-monospace,monospace;fill:${C.muted}}
-.nt{font:11.5px system-ui,sans-serif;fill:${C.ink}}.bt{font:600 11px ui-monospace,monospace;fill:#fff}
-.ph{font:600 11px system-ui,sans-serif;fill:${C.muted};letter-spacing:.06em}</style>
+<style>.ht{font:600 14px Poppins,system-ui,sans-serif;fill:#fff}.hs{font:11px 'JetBrains Mono',ui-monospace,monospace;fill:#fff;opacity:.9}
+.ml{font:600 12.5px Poppins,system-ui,sans-serif;fill:${C.ink}}.ms{font:11px 'JetBrains Mono',ui-monospace,monospace;fill:${C.muted}}
+.nt{font:11.5px Poppins,system-ui,sans-serif;fill:${C.ink}}.bt{font:600 11px 'JetBrains Mono',ui-monospace,monospace;fill:#fff}
+.ph{font:600 11px Poppins,system-ui,sans-serif;fill:${C.muted};letter-spacing:.06em}</style>
 ${head('k8s', 'Kubernetes', 'kubelet · OIDC issuer', C.k8s)}
 ${head('pod', 'hello-web pod', short(d.pod, 22), C.pod)}
 ${head('entra', 'Entra ID', `login.${d.domain}`, C.entra)}
@@ -102,8 +102,8 @@ ${label ? `<text x="${lx}" y="${ly}" text-anchor="${anchor}" class="al">${label}
 refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${c}"/></marker>`).join('');
   return `<svg viewBox="0 0 960 470" role="img" aria-label="Where every piece runs" class="diagram">
 <defs>${markers}</defs>
-<style>.ft{font:600 13px system-ui,sans-serif}.bt2{font:600 12.5px system-ui,sans-serif}.bs{font:11px ui-monospace,monospace;fill:${C.muted}}
-.al{font:11px system-ui,sans-serif;fill:${C.ink}}.lg{font:11.5px system-ui,sans-serif;fill:${C.ink}}</style>
+<style>.ft{font:600 13px Poppins,system-ui,sans-serif}.bt2{font:600 12.5px Poppins,system-ui,sans-serif}.bs{font:11px 'JetBrains Mono',ui-monospace,monospace;fill:${C.muted}}
+.al{font:11px Poppins,system-ui,sans-serif;fill:${C.ink}}.lg{font:11.5px Poppins,system-ui,sans-serif;fill:${C.ink}}</style>
 ${frame(150, 8, 802, 418, 'Your machine · Docker', C.muted)}
 
 ${box(8, 70, 124, 52, 'Browser', 'you, or the LAN', C.ink)}
@@ -202,9 +202,11 @@ function render({ greeting, visits, steps, sa, tokens, error }, env) {
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>hello-web on CloudTyke</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Poppins:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap" rel="stylesheet">
 <style>
-body{font:16px/1.55 system-ui,sans-serif;max-width:1000px;margin:32px auto;padding:0 20px;color:${C.ink}}
-h1{font-size:30px;margin:0}h2{font-size:21px;margin:44px 0 6px;padding-top:12px;border-top:1px solid #e5e7eb}
+body{font:16px/1.55 Poppins,system-ui,sans-serif;max-width:1000px;margin:32px auto;padding:0 20px;color:${C.ink}}
+h1,h2{font-family:Unbounded,Poppins,sans-serif;letter-spacing:-.01em}h1{font-size:30px;margin:0}h2{font-size:21px;margin:44px 0 6px;padding-top:12px;border-top:1px solid #e5e7eb}
 h3{font-size:16px;margin:20px 0 6px}
 .big{font-size:22px;background:#ecfdf5;border:1px solid #a7f3d0;padding:16px;border-radius:10px}
 .err{background:#fef2f2;border-color:#fecaca}
@@ -214,10 +216,10 @@ table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:6px 8px;
 nav a{margin-right:14px;font-size:14px}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:760px){.cols{grid-template-columns:1fr}}
 .card{border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px;background:#fff}
-.claims th{width:80px;font:12px ui-monospace,monospace;color:${C.muted}}.claims td{font:12px ui-monospace,monospace;word-break:break-all}
+.claims th{width:80px;font:12px 'JetBrains Mono',ui-monospace,monospace;color:${C.muted}}.claims td{font:12px 'JetBrains Mono',ui-monospace,monospace;word-break:break-all}
 .hl{background:#fef9c3}
 ul.checks{list-style:none;padding:0}ul.checks li{padding:4px 0;font-size:14px}ul.checks b{display:inline-block;width:20px}
-.pass b{color:${C.ok}}.fail b{color:${C.bad}}.unk b{color:${C.skip}}code{font:12.5px ui-monospace,monospace;background:#f1f5f9;padding:1px 5px;border-radius:4px}
+.pass b{color:${C.ok}}.fail b{color:${C.bad}}.unk b{color:${C.skip}}code{font:12.5px 'JetBrains Mono',ui-monospace,monospace;background:#f1f5f9;padding:1px 5px;border-radius:4px}
 ol li{margin:6px 0}pre{background:#0f172a;color:#e2e8f0;padding:12px 14px;border-radius:10px;font-size:13px;overflow-x:auto}
 tr.path td:first-child{border-left:3px solid ${C.pod}}
 </style></head><body>

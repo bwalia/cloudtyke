@@ -32,6 +32,9 @@ type Gateway struct {
 	DataPlanes map[string]http.Handler
 	// OIDC serves AKS OIDC issuer documents on oidc.<domain>.
 	OIDC   http.Handler
+	// Exists reports whether a data-plane host names an existing resource
+	// (vault, storage account, registry). Used by /_cloudtyke/edge/allow.
+	Exists func(host string) bool
 	Log    *RequestLog
 	Logger *slog.Logger
 }
@@ -43,6 +46,17 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("x-ms-request-id", rid)
 	w.Header().Set("Server", "CloudTyke")
 	rec := &recorder{ResponseWriter: w, status: 200}
+	if g.Cfg.TrustForwardedHost {
+		// Behind the cloudtyke.dev edge: names the edge serves "on demand"
+		// (e.g. <vault>.vault.cloudtyke.dev) arrive with the edge's own Host
+		// and the client's in X-Original-Host. Data planes read r.Host.
+		for _, h := range []string{r.Header.Get("X-Original-Host"), r.Header.Get("X-Forwarded-Host")} {
+			if h = strings.TrimSpace(strings.Split(h, ",")[0]); h != "" {
+				r.Host = h
+				break
+			}
+		}
+	}
 	host := strings.ToLower(r.Host)
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
@@ -71,6 +85,9 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (g *Gateway) dispatch(w http.ResponseWriter, r *http.Request, host string) string {
 	p := r.URL.Path
 	switch {
+	case p == "/_cloudtyke/edge/allow":
+		g.edgeAllow(w, r)
+		return "admin"
 	case strings.HasPrefix(p, "/_cloudtyke"):
 		g.Admin.ServeHTTP(w, r)
 		return "admin"
@@ -281,4 +298,31 @@ func (l *RequestLog) Recent(n int) []Entry {
 		out = append(out, l.buf[idx])
 	}
 	return out
+}
+
+// edgeAllow answers an edge proxy's "may I serve, and get a certificate for,
+// this host?" (GET ?domain=<host>): 200 for the emulator's own service names,
+// AKS API servers and data-plane names of resources that exist; 404 otherwise.
+// Unauthenticated, like DNS: it reveals only whether a name is in use.
+func (g *Gateway) edgeAllow(w http.ResponseWriter, r *http.Request) {
+	d := strings.ToLower(strings.TrimSuffix(strings.TrimSpace(r.URL.Query().Get("domain")), "."))
+	cfg := g.Cfg
+	ok := false
+	switch {
+	case d == "" || !strings.HasSuffix(d, "."+cfg.Domain):
+	case d == cfg.Host(config.SubManagement), d == cfg.Host(config.SubLogin), d == cfg.Host(config.SubGraph), d == cfg.Host(config.SubOIDC):
+		ok = true
+	case g.Exists != nil && g.Exists(d):
+		ok = true
+	case g.Kube != nil:
+		_, ok = g.Kube(d)
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	if ok {
+		w.WriteHeader(200)
+		_, _ = w.Write([]byte("ok\n"))
+		return
+	}
+	w.WriteHeader(404)
+	_, _ = w.Write([]byte("unknown\n"))
 }

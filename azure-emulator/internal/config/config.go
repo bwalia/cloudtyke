@@ -24,6 +24,13 @@ type Config struct {
 	ExtraHosts        []string      // extra SANs for the server certificate
 	DocsURL           string        // coverage matrix link in 501 errors
 	AKSBackend        string        // what answers kubectl: "stub" (default) or "k3s"
+	// HTTPListen, when set (e.g. ":8080"), also serves plain HTTP there, for
+	// a proxy in front that terminates TLS with real certificates (the hosted
+	// sandbox on cloudtyke.dev). The HTTPS listener keeps running.
+	HTTPListen string
+	// TrustForwardedHost takes the request's host from X-Original-Host or
+	// X-Forwarded-Host. Only enable it behind a proxy that sets them.
+	TrustForwardedHost bool
 }
 
 // FromEnv reads the configuration from the environment.
@@ -40,6 +47,8 @@ func FromEnv() Config {
 		AsyncDelay:        envDuration("CLOUDTYKE_ASYNC_DELAY", 0),
 		PageSize:          envInt("CLOUDTYKE_PAGE_SIZE", 100),
 		AKSBackend:        strings.ToLower(env("CLOUDTYKE_AKS_BACKEND", "stub")),
+		HTTPListen:         env("CLOUDTYKE_HTTP_LISTEN", ""),
+		TrustForwardedHost: envBool("CLOUDTYKE_TRUST_FORWARDED_HOST", false),
 		DocsURL:           env("CLOUDTYKE_DOCS_URL", "https://github.com/bwalia/cloudtyke/blob/main/azure-emulator/docs/coverage.md"),
 	}
 	if v := os.Getenv("CLOUDTYKE_EXTRA_HOSTS"); v != "" {

@@ -130,6 +130,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		Kube:       aks.KubeAPI,
 		DataPlanes: dataPlanes,
 		OIDC:       aks.OIDCHandler(),
+		Exists:     dataPlaneExists(cfg, st),
 		Admin:      &admin.Server{Cfg: cfg, Store: st, Registry: armSrv.Registry, Log: reqLog, Chaos: ch, CAPEM: bundle.CAPEM, Seed: seedFile, WriteMu: &armSrv.WriteMu, SelfTest: selfTest, Network: network.LabHandler(armSrv)},
 		Log:        reqLog,
 		Logger:     logger,
