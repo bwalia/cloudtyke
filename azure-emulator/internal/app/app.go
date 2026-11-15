@@ -4,6 +4,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/bwalia/cloudtyke/azure-emulator/internal/rp/network"
 	"io"
 	"log/slog"
 	"net/http"
@@ -128,7 +129,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		Graph:  &graph.Server{Cfg: cfg, Auth: authSvc, Dir: dir},
 		Kube:   aks.KubeAPI,
 		OIDC:   aks.OIDCHandler(),
-		Admin:  &admin.Server{Cfg: cfg, Store: st, Registry: armSrv.Registry, Log: reqLog, Chaos: ch, CAPEM: bundle.CAPEM, Seed: seedFile, WriteMu: &armSrv.WriteMu, SelfTest: selfTest},
+		Admin:  &admin.Server{Cfg: cfg, Store: st, Registry: armSrv.Registry, Log: reqLog, Chaos: ch, CAPEM: bundle.CAPEM, Seed: seedFile, WriteMu: &armSrv.WriteMu, SelfTest: selfTest, Network: network.LabHandler(armSrv)},
 		Log:    reqLog,
 		Logger: logger,
 	}

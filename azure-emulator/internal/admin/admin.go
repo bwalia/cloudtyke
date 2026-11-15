@@ -38,6 +38,8 @@ type Server struct {
 	WriteMu *sync.Mutex
 	// SelfTest serves /_cloudtyke/selftest (wired by internal/app).
 	SelfTest http.Handler
+	// Network serves the network lab tools (effective routes, trace).
+	Network http.Handler
 
 	memSnaps sync.Map
 }
@@ -132,6 +134,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, 200, map[string]any{"status": "seeded"})
+	case strings.HasPrefix(p, "/network/") && s.Network != nil:
+		s.Network.ServeHTTP(w, r)
 	case p == "/selftest" && s.SelfTest != nil:
 		s.SelfTest.ServeHTTP(w, r)
 	case p == "/snapshots":
