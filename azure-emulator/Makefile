@@ -9,7 +9,7 @@ EXAMPLES ?= quickstart entra aks-platform landing-zone
 REPORTS ?= reports
 GO_TEST_FLAGS ?= -count=1
 
-.PHONY: help build test test-race test-services test-all selftest lint coverage coverage-check up up-k3s down clean logs reset env shell tf-e2e tf-e2e-terraform aks-k3s-smoke lab-hub-spoke lab-avnm contoso-pay contoso-pay-aks contoso-pay-smoke contoso-pay-down dashboard dashboard-lan dashboard-dev
+.PHONY: help build test test-race test-services test-all selftest lint coverage coverage-check up up-k3s down clean logs reset env shell tf-e2e tf-e2e-terraform aks-k3s-smoke lab-hub-spoke lab-avnm hello-web hello-web-down contoso-pay contoso-pay-aks contoso-pay-smoke contoso-pay-down dashboard dashboard-lan dashboard-dev
 
 help: ## show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-18s %s\n", $$1, $$2}'
@@ -113,6 +113,12 @@ lab-hub-spoke: ## grade the hub-and-spoke lab end to end (TOOL=tofu|terraform)
 lab-avnm: ## grade the Virtual Network Manager lab end to end (TOOL=tofu|terraform)
 	$(COMPOSE) --profile tools build toolbox
 	$(TOOLBOX) ./test/labs/avnm.sh $(or $(TOOL),tofu)
+
+hello-web: ## smallest end-to-end demo: Terraform + AKS + workload identity + Key Vault + Blob, on http://localhost:4740
+	TOOL=$(or $(TOOL),tofu) ./examples/terraform/hello-web/hello-web.sh up
+
+hello-web-down: ## remove the hello-web demo
+	TOOL=$(or $(TOOL),tofu) ./examples/terraform/hello-web/hello-web.sh down
 
 contoso-pay: ## deploy the Contoso Pay scenario and start its live apps + OpenTelemetry stack (TOOL=tofu|terraform)
 	TOOL=$(or $(TOOL),tofu) ./scenarios/contoso-pay/apps/scripts/up.sh

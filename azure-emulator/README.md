@@ -123,6 +123,14 @@ the emulator then runs a `rancher/k3s` container for every cluster on the compos
 checking the AKS credential, and points its service account issuer at the cluster's OIDC issuer URL. That mode mounts the
 Docker socket into the emulator, which is root-equivalent access to the machine: use it on a development box only.
 
+Each k3s node needs many inotify instances. If a cluster fails with `too many open files` (common on Docker Desktop with
+many containers, or with a second cluster), raise the limit in the Docker VM; it resets when Docker restarts:
+
+```bash
+docker run --rm --privileged --pid=host alpine nsenter -t 1 -m -u -n -i \
+  sysctl -w fs.inotify.max_user_instances=1024 fs.inotify.max_user_watches=1048576
+```
+
 Everything else returns `501 NotImplemented`, naming the resource type, so you always know where the edge is. See
 [docs/coverage.md](docs/coverage.md) (generated) and the honest [docs/known-gaps.md](docs/known-gaps.md).
 
