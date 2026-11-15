@@ -174,14 +174,19 @@ CADDY
   docker run -d --name "$PROXY" --restart unless-stopped --network "$NET" -p "$BIND:$PORT:8080" \
     -v "$EMU/reports/.hello-web-Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine >/dev/null
   CURL=(curl -fsS -u "$user:$pw")
-  host=$BIND; [ "$host" = "0.0.0.0" ] && host=$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
-  URL="http://${host:-localhost}:$PORT"
+  ip=$BIND; [ "$ip" = "0.0.0.0" ] && ip=$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
+  NAME=${HELLO_HOSTNAME:-hello.cloudtyke.local}
+  suffix=":$PORT"; [ "$PORT" = 80 ] && suffix=""
+  URL="http://$NAME$suffix"
+  HOSTS_HINT="  on other machines, add this line to the hosts file (/etc/hosts; on Windows drivers/etc/hosts):  ${ip:-THIS-MACHINE-IP}  $NAME
+  or use the IP directly: http://${ip:-localhost}$suffix"
 fi
 for i in $(seq 1 30); do
   if body=$("${CURL[@]}" "http://localhost:$PORT/" 2>/dev/null); then
     echo
     echo "hello-web is up: $URL"
     [ "${user:-}" ] && echo "  sign in as $user / $pw  (saved in reports/.hello-web-lan-credentials)"
+    [ "${HOSTS_HINT:-}" ] && echo "$HOSTS_HINT"
     grep -o 'viewed <b>[0-9]*</b>' <<<"$body" | sed 's/<[^>]*>//g; s/^/  page /'
     exit 0
   fi

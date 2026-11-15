@@ -18,15 +18,26 @@ open http://localhost:4740
 make hello-web-down     # remove it all
 ```
 
-### From other machines on your network
+### From other machines on your network, by name
 
 ```bash
-HELLO_BIND=0.0.0.0 make hello-web   # http://<your-LAN-IP>:4740, behind a password
+HELLO_BIND=0.0.0.0 HELLO_PORT=80 make hello-web   # http://hello.cloudtyke.local, behind a password
+```
+
+On each machine that should open it, add one line to its hosts file (`/etc/hosts`, or
+`C:\Windows\System32\drivers\etc\hosts` on Windows), using this machine's LAN IP (the script prints it):
+
+```
+192.168.1.177  hello.cloudtyke.local
 ```
 
 LAN mode replaces the localhost forwarder with a Caddy proxy that requires basic auth. The user (`intern`, or
 `HELLO_USER`) and a generated password (or `HELLO_PASSWORD`) are printed and saved in
-`reports/.hello-web-lan-credentials`. Only the app is exposed: the emulator stays on localhost.
+`reports/.hello-web-lan-credentials`. Only the app is exposed: the emulator stays on localhost, so don't map
+`vault.`, `management.` or `login.cloudtyke.local` to this machine on other computers. The browser never calls them; the
+pod does. Notes: plain HTTP (the password crosses your LAN unencrypted, fine for a demo network); `HELLO_HOSTNAME`
+changes the name; and macOS may resolve `.local` names via Bonjour first, so a hosts entry can take a few seconds
+on the first lookup.
 
 ## Where things run
 
