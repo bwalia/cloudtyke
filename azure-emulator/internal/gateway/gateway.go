@@ -31,7 +31,7 @@ type Gateway struct {
 	// -> Key Vault, ".blob.storage.<domain>" -> Blob storage.
 	DataPlanes map[string]http.Handler
 	// OIDC serves AKS OIDC issuer documents on oidc.<domain>.
-	OIDC   http.Handler
+	OIDC http.Handler
 	// Exists reports whether a data-plane host names an existing resource
 	// (vault, storage account, registry). Used by /_cloudtyke/edge/allow.
 	Exists func(host string) bool

@@ -44,7 +44,7 @@ func TestEdgeAllowAndForwardedHost(t *testing.T) {
 	vault := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { seen = r.Host })
 	g := &gateway.Gateway{
 		Cfg: cfg, ARM: http.NotFoundHandler(), Login: http.NotFoundHandler(), Graph: http.NotFoundHandler(),
-		Admin: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(401) }),
+		Admin:      http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(401) }),
 		DataPlanes: map[string]http.Handler{".vault.cloudtyke.dev": vault},
 		Exists:     dataPlaneExists(cfg, st),
 		Log:        gateway.NewRequestLog(10), Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),

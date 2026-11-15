@@ -36,20 +36,20 @@ type Config struct {
 // FromEnv reads the configuration from the environment.
 func FromEnv() Config {
 	c := Config{
-		Domain:            env("CLOUDTYKE_DOMAIN", "cloudtyke.local"),
-		Listen:            env("CLOUDTYKE_LISTEN", ":443"),
-		PublicPort:        envInt("CLOUDTYKE_PUBLIC_PORT", 443),
-		DataDir:           env("CLOUDTYKE_DATA_DIR", "/data"),
-		CertExportDir:     env("CLOUDTYKE_CERT_EXPORT_DIR", "/certs"),
-		Ephemeral:         envBool("CLOUDTYKE_EPHEMERAL", false),
-		SeedFile:          env("CLOUDTYKE_SEED_FILE", ""),
-		StrictAPIVersions: envBool("CLOUDTYKE_STRICT_API_VERSIONS", false),
-		AsyncDelay:        envDuration("CLOUDTYKE_ASYNC_DELAY", 0),
-		PageSize:          envInt("CLOUDTYKE_PAGE_SIZE", 100),
-		AKSBackend:        strings.ToLower(env("CLOUDTYKE_AKS_BACKEND", "stub")),
+		Domain:             env("CLOUDTYKE_DOMAIN", "cloudtyke.local"),
+		Listen:             env("CLOUDTYKE_LISTEN", ":443"),
+		PublicPort:         envInt("CLOUDTYKE_PUBLIC_PORT", 443),
+		DataDir:            env("CLOUDTYKE_DATA_DIR", "/data"),
+		CertExportDir:      env("CLOUDTYKE_CERT_EXPORT_DIR", "/certs"),
+		Ephemeral:          envBool("CLOUDTYKE_EPHEMERAL", false),
+		SeedFile:           env("CLOUDTYKE_SEED_FILE", ""),
+		StrictAPIVersions:  envBool("CLOUDTYKE_STRICT_API_VERSIONS", false),
+		AsyncDelay:         envDuration("CLOUDTYKE_ASYNC_DELAY", 0),
+		PageSize:           envInt("CLOUDTYKE_PAGE_SIZE", 100),
+		AKSBackend:         strings.ToLower(env("CLOUDTYKE_AKS_BACKEND", "stub")),
 		HTTPListen:         env("CLOUDTYKE_HTTP_LISTEN", ""),
 		TrustForwardedHost: envBool("CLOUDTYKE_TRUST_FORWARDED_HOST", false),
-		DocsURL:           env("CLOUDTYKE_DOCS_URL", "https://github.com/bwalia/cloudtyke/blob/main/azure-emulator/docs/coverage.md"),
+		DocsURL:            env("CLOUDTYKE_DOCS_URL", "https://github.com/bwalia/cloudtyke/blob/main/azure-emulator/docs/coverage.md"),
 	}
 	if v := os.Getenv("CLOUDTYKE_EXTRA_HOSTS"); v != "" {
 		for _, h := range strings.Split(v, ",") {
