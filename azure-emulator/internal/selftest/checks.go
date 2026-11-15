@@ -35,11 +35,11 @@ var Checks = map[string]Check{
 	}},
 	"Microsoft.Resources/tenants": {"lists the caller's home tenant", func(c *C) {
 		ts := c.Status(c.Do(get, c.ARM("/tenants", apiRes), c.Boot("management"), nil), 200, "", "list tenants").Value()
-		c.Expect(len(ts) == 1 && HasID(ts, "tenantId", Tenant), "expected the seeded tenant, got %v", ts)
+		c.Expect(len(ts) == 1 && HasID(ts, "tenantId", Tenant), "lists the seeded tenant, got %v", ts)
 	}},
 	"Microsoft.Resources/locations": {"curated region list with zone mappings", func(c *C) {
 		ls := c.Status(c.Do(get, c.ARM("/subscriptions/"+SubSandbox+"/locations", apiRes), c.Reader("management"), nil), 200, "", "list locations").Value()
-		c.Expect(len(ls) >= 5 && HasID(ls, "name", "uksouth") && HasID(ls, "name", "westeurope"), "expected uksouth and westeurope among %d regions", len(ls))
+		c.Expect(len(ls) >= 5 && HasID(ls, "name", "uksouth") && HasID(ls, "name", "westeurope"), "regions include uksouth and westeurope (%d regions)", len(ls))
 	}},
 	"Microsoft.Resources/providers": {"list, get, register/unregister, unknown namespace", func(c *C) {
 		tok := c.Boot("management")
@@ -71,7 +71,7 @@ var Checks = map[string]Check{
 		c.Expect(p.Str("tags.owner") == "ct", "PATCH should merge tags")
 		f := url.QueryEscape("tagName eq 'owner' and tagValue eq 'ct'")
 		l := c.Status(c.Do(get, c.ARM("/subscriptions/"+SubSandbox+"/resourcegroups?$filter="+f, apiRes), tok, nil), 200, "", "list with tag filter").Value()
-		c.Expect(len(l) == 1 && HasID(l, "name", name), "tag filter should return only %s, got %d", name, len(l))
+		c.Expect(len(l) == 1 && HasID(l, "name", name), "tag filter returns only %s, got %d", name, len(l))
 		c.Status(c.Do(put, u, c.Reader("management"), map[string]any{"location": "uksouth"}), 403, "AuthorizationFailed", "Reader cannot write")
 		c.Status(c.Do(get, u, c.Reader("management"), nil), 200, "", "Reader can read")
 		d := c.Status(c.Do(del, u, tok, nil), 202, "", "delete")
@@ -101,7 +101,7 @@ var Checks = map[string]Check{
 		r := c.Status(c.Do(get, c.ARM(base+"?$filter="+f, apiRD), tok, nil), 200, "", "filter by roleName").Value()
 		c.Expect(len(r) == 1 && HasID(r, "name", RoleReader), "roleName filter should return the Reader built-in, got %v", r)
 		bi := c.Status(c.Do(get, c.ARM(base+"?$filter="+url.QueryEscape("type eq 'BuiltInRole'"), apiRD), tok, nil), 200, "", "filter by type").Value()
-		c.Expect(len(bi) >= 3, "expected built-in roles, got %d", len(bi))
+		c.Expect(len(bi) >= 3, "built-in roles are listed, got %d", len(bi))
 		c.Status(c.Do(get, c.ARM(base+"/"+RoleContributor, apiRD), tok, nil), 200, "", "get Contributor")
 		c.Status(c.Do(put, c.ARM(base+"/"+RoleReader, apiRD), tok, map[string]any{"properties": map[string]any{"roleName": "Reader"}}), 403, "RoleDefinitionUpdateNotPermitted", "update built-in")
 
@@ -112,14 +112,12 @@ var Checks = map[string]Check{
 			"assignableScopes": []string{"/subscriptions/" + SubSandbox},
 			"permissions":      []any{map[string]any{"actions": []string{"Microsoft.Resources/subscriptions/resourceGroups/read"}, "notActions": []string{}}},
 		}}
-		cr := c.Do(put, c.ARM(base+"/"+id, apiRD), tok, body)
-		c.Expect(cr.Code == 201 || cr.Code == 200, "create custom role: got %d %s", cr.Code, short(cr.Raw))
+		cr := c.StatusIn(c.Do(put, c.ARM(base+"/"+id, apiRD), tok, body), "create custom role", 201, 200)
 		c.Expect(cr.Str("properties.type") == "CustomRole", "custom role type should be CustomRole")
 		dup := body["properties"].(map[string]any)
 		c.Status(c.Do(put, c.ARM(base+"/"+entra.NewGUID(), apiRD), tok, map[string]any{"properties": dup}), 409, "RoleDefinitionWithSameNameExists", "duplicate name")
 		c.Status(c.Do(put, c.ARM(base+"/"+entra.NewGUID(), apiRD), tok, map[string]any{"properties": map[string]any{"roleName": c.Name("x")}}), 400, "MissingAssignableScopes", "missing assignableScopes")
-		d := c.Do(del, c.ARM(base+"/"+id, apiRD), tok, nil)
-		c.Expect(d.Code == 200 || d.Code == 204, "delete custom role: got %d", d.Code)
+		c.StatusIn(c.Do(del, c.ARM(base+"/"+id, apiRD), tok, nil), "delete custom role", 200, 204)
 		c.Status(c.Do(get, c.ARM(base+"/"+id, apiRD), tok, nil), 404, "RoleDefinitionDoesNotExist", "get after delete")
 	}},
 	"Microsoft.Authorization/roleAssignments": {"assign, inherit, filter, duplicates, principal validation, enforcement", func(c *C) {
@@ -178,9 +176,9 @@ var Checks = map[string]Check{
 		c.Status(c.Do(patch, u, tok, map[string]any{"tags": map[string]any{"x": "y"}}), 200, "", "patch rg")
 		f := url.QueryEscape("resourceGroupName eq '" + rg + "'")
 		ev := c.Status(c.Do(get, c.ARM("/subscriptions/"+SubSandbox+"/providers/Microsoft.Insights/eventtypes/management/values?$filter="+f, apiAL), tok, nil), 200, "", "query activity log").Value()
-		c.Expect(len(ev) >= 2, "expected events for the rg writes, got %d", len(ev))
+		c.Expect(len(ev) >= 2, "events were recorded for the rg writes, got %d", len(ev))
 		e := ev[0]
-		c.Expect(dig(e, "caller") != nil && dig(e, "operationName") != nil && dig(e, "status") != nil, "event missing caller/operationName/status: %v", e)
+		c.Expect(dig(e, "caller") != nil && dig(e, "operationName") != nil && dig(e, "status") != nil, "events carry caller, operationName and status: %v", e)
 		other := c.Status(c.Do(get, c.ARM("/subscriptions/"+SubSandbox+"/providers/Microsoft.Insights/eventtypes/management/values?$filter="+url.QueryEscape("resourceGroupName eq 'nope-"+rg+"'"), apiAL), tok, nil), 200, "", "filter no match").Value()
 		c.Expect(len(other) == 0, "filter for another rg should be empty, got %d", len(other))
 		c.Status(c.Do(get, c.ARM("/subscriptions/"+SubSandbox+"/providers/Microsoft.Insights/eventtypes/other/values", apiAL), tok, nil), 400, "BadRequest", "wrong event type")
@@ -190,16 +188,16 @@ var Checks = map[string]Check{
 	"token": {"client secret, v1 + v2 endpoints, claims, error codes", func(c *C) {
 		tok := c.Boot("management")
 		cl := Claims(tok)
-		c.Expect(cl["tid"] == Tenant && cl["appid"] == BootAppID && cl["oid"] == BootSPID, "unexpected claims %v", cl)
+		c.Expect(cl["tid"] == Tenant && cl["appid"] == BootAppID && cl["oid"] == BootSPID, "token claims tid, appid and oid are correct: %v", cl)
 		g := Claims(c.Boot("graph"))
-		c.Expect(containsStr(g["roles"], "Directory.ReadWrite.All"), "Graph token should carry app roles, got %v", g["roles"])
+		c.Expect(containsStr(g["roles"], "Directory.ReadWrite.All"), "Graph token carries the app roles, got %v", g["roles"])
 		ep := c.URL("login", "/"+Tenant+"/oauth2/v2.0/token")
 		c.Status(c.Form(ep, url.Values{"client_id": {BootAppID}, "client_secret": {"wrong"}, "grant_type": {"client_credentials"}, "scope": {c.URL("management", "/.default")}}), 401, "invalid_client", "wrong secret")
 		c.Status(c.Form(ep, url.Values{"client_id": {BootAppID}, "client_secret": {BootSecret}, "grant_type": {"client_credentials"}, "scope": {"no-default-suffix"}}), 400, "invalid_scope", "scope without /.default")
 		c.Status(c.Form(ep, url.Values{"client_id": {BootAppID}, "client_assertion": {"x.y.z"}, "client_assertion_type": {"wrong"}, "grant_type": {"client_credentials"}, "scope": {c.URL("management", "/.default")}}), 400, "invalid_request", "bad client_assertion_type")
 		c.Status(c.Form(c.URL("login", "/00000000-0000-4000-8000-0000000000ff/oauth2/v2.0/token"), url.Values{"client_id": {BootAppID}, "client_secret": {BootSecret}, "grant_type": {"client_credentials"}, "scope": {c.URL("management", "/.default")}}), 400, "invalid_request", "unknown tenant")
 		v1 := c.Status(c.Form(c.URL("login", "/"+Tenant+"/oauth2/token"), url.Values{"client_id": {BootAppID}, "client_secret": {BootSecret}, "grant_type": {"client_credentials"}, "resource": {c.URL("management", "/")}}), 200, "", "v1 endpoint with resource=")
-		c.Expect(v1.Body["access_token"] != nil, "v1 response missing access_token")
+		c.Expect(v1.Body["access_token"] != nil, "v1 response carries an access_token")
 		c.Status(c.Do(get, c.ARM("/subscriptions", apiRes), c.Boot("graph"), nil), 401, "InvalidAuthenticationTokenAudience", "Graph token used on ARM")
 		c.Status(c.Do(get, c.ARM("/subscriptions", apiRes), "", nil), 401, "", "no token on ARM")
 	}},
@@ -207,10 +205,10 @@ var Checks = map[string]Check{
 		d := c.Status(c.Do(get, c.URL("login", "/"+Tenant+"/v2.0/.well-known/openid-configuration"), "", nil), 200, "", "v2 discovery")
 		c.Expect(strings.Contains(d.Str("issuer"), Tenant) && strings.HasSuffix(d.Str("token_endpoint"), "/oauth2/v2.0/token"), "unexpected discovery %s", short(d.Raw))
 		jwks := d.Str("jwks_uri")
-		c.Expect(jwks != "", "jwks_uri missing")
+		c.Expect(jwks != "", "discovery publishes jwks_uri")
 		k := c.Status(c.Do(get, jwks, "", nil), 200, "", "JWKS")
 		keys, _ := k.Body["keys"].([]any)
-		c.Expect(len(keys) >= 1, "JWKS has no keys")
+		c.Expect(len(keys) >= 1, "JWKS publishes at least one key")
 		kid := jwtHeaderKid(c.Boot("management"))
 		found := false
 		for _, kk := range keys {
@@ -218,13 +216,13 @@ var Checks = map[string]Check{
 				found = true
 			}
 		}
-		c.Expect(found, "token kid %q not published in JWKS", kid)
+		c.Expect(found, "the token's signing key (kid) is published in JWKS: %q", kid)
 		v1 := c.Status(c.Do(get, c.URL("login", "/"+Tenant+"/.well-known/openid-configuration"), "", nil), 200, "", "v1 discovery")
-		c.Expect(strings.HasSuffix(v1.Str("token_endpoint"), "/oauth2/token"), "v1 token endpoint expected")
+		c.Expect(strings.HasSuffix(v1.Str("token_endpoint"), "/oauth2/token"), "v1 discovery points at the v1 token endpoint")
 	}},
 	"instance-discovery": {"MSAL instance discovery", func(c *C) {
 		r := c.Status(c.Do(get, c.URL("login", "/common/discovery/instance?api-version=1.1&authorization_endpoint="+url.QueryEscape(c.URL("login", "/common/oauth2/authorize"))), "", nil), 200, "", "instance discovery")
-		c.Expect(strings.Contains(r.Str("tenant_discovery_endpoint"), "/.well-known/openid-configuration"), "tenant_discovery_endpoint missing: %s", short(r.Raw))
+		c.Expect(strings.Contains(r.Str("tenant_discovery_endpoint"), "/.well-known/openid-configuration"), "returns tenant_discovery_endpoint: %s", short(r.Raw))
 	}},
 
 	// ------------------------------------------------------------ Graph
@@ -243,8 +241,8 @@ var Checks = map[string]Check{
 		c.Status(c.Do(get, c.Graph("/users/"+id), tok, nil), 200, "", "get by id")
 		c.Status(c.Do(get, c.Graph("/users/"+upn), tok, nil), 200, "", "get by UPN")
 		c.Status(c.Do(patch, c.Graph("/users/"+id), tok, map[string]any{"jobTitle": "Platform Engineer"}), 204, "", "PATCH")
-		g := c.Do(get, c.Graph("/users/"+id+"?$select=id,jobTitle"), tok, nil)
-		c.Expect(g.Str("jobTitle") == "Platform Engineer" && g.Body["displayName"] == nil, "$select / PATCH not applied: %s", short(g.Raw))
+		g := c.Status(c.Do(get, c.Graph("/users/"+id+"?$select=id,jobTitle"), tok, nil), 200, "", "$select id,jobTitle")
+		c.Expect(g.Str("jobTitle") == "Platform Engineer" && g.Body["displayName"] == nil, "PATCH applied and $select returned only the selected fields: %s", short(g.Raw))
 		f := c.Status(c.Do(get, c.Graph("/users?$count=true&$filter="+url.QueryEscape("startswith(userPrincipalName,'"+n+"')")), tok, nil), 200, "", "$filter startswith")
 		c.Expect(len(f.Value()) == 1 && f.Body["@odata.count"] == float64(1), "filter should match exactly one user: %s", short(f.Raw))
 		pg := c.Status(c.Do(get, c.Graph("/users?$top=1"), tok, nil), 200, "", "$top=1")
@@ -313,7 +311,7 @@ var Checks = map[string]Check{
 		c.Status(c.Do(post, c.Graph("/applications/"+id+"/federatedIdentityCredentials"), tok, fic), 201, "", "create federated credential")
 		c.Status(c.Do(post, c.Graph("/applications/"+id+"/federatedIdentityCredentials"), tok, fic), 409, "Request_MultipleObjectsWithSameKeyValue", "duplicate federated credential")
 		fl := c.Status(c.Do(get, c.Graph("/applications/"+id+"/federatedIdentityCredentials"), tok, nil), 200, "", "list federated credentials").Value()
-		c.Expect(len(fl) == 1, "expected 1 federated credential, got %d", len(fl))
+		c.Expect(len(fl) == 1, "exactly 1 federated credential listed, got %d", len(fl))
 		c.Status(c.Do(post, c.Graph("/applications/"+id+"/owners/$ref"), tok, map[string]any{"@odata.id": c.Graph("/directoryObjects/" + AdaUserID)}), 204, "", "add owner")
 		c.Status(c.Do(post, c.Graph("/applications"), c.Reader("graph"), map[string]any{"displayName": "x"}), 403, "Authorization_RequestDenied", "Reader cannot create applications")
 		c.Status(c.Do(del, c.Graph("/applications/"+id), tok, nil), 204, "", "delete application")
@@ -357,7 +355,7 @@ var Checks = map[string]Check{
 		gid := g.Str("id")
 		c.Status(c.Do(patch, c.Graph("/oauth2PermissionGrants/"+gid), tok, map[string]any{"scope": "User.Read Group.Read.All"}), 204, "", "update scope")
 		r := c.Status(c.Do(get, c.Graph("/oauth2PermissionGrants/"+gid), tok, nil), 200, "", "get grant")
-		c.Expect(r.Str("scope") == "User.Read Group.Read.All", "scope not updated: %s", r.Str("scope"))
+		c.Expect(r.Str("scope") == "User.Read Group.Read.All", "scope was updated: %s", r.Str("scope"))
 		l := c.Status(c.Do(get, c.Graph("/servicePrincipals/"+spID+"/oauth2PermissionGrants"), tok, nil), 200, "", "grants of the client").Value()
 		c.Expect(HasID(l, "id", gid), "client SP should list its grant")
 		c.Status(c.Do(get, c.Graph("/oauth2PermissionGrants"), tok, nil), 200, "", "list all grants")
@@ -394,9 +392,9 @@ var Checks = map[string]Check{
 	"directoryObjects": {"get any object by id, getByIds with type filter", func(c *C) {
 		tok := c.Boot("graph")
 		u := c.Status(c.Do(get, c.Graph("/directoryObjects/"+AdaUserID), tok, nil), 200, "", "get user via directoryObjects")
-		c.Expect(u.Body["@odata.type"] == "#microsoft.graph.user", "expected a user, got %v", u.Body["@odata.type"])
+		c.Expect(u.Body["@odata.type"] == "#microsoft.graph.user", "object is typed #microsoft.graph.user, got %v", u.Body["@odata.type"])
 		sp := c.Status(c.Do(get, c.Graph("/directoryObjects/"+BootSPID), tok, nil), 200, "", "get service principal via directoryObjects")
-		c.Expect(sp.Body["@odata.type"] == "#microsoft.graph.servicePrincipal", "expected a service principal, got %v", sp.Body["@odata.type"])
+		c.Expect(sp.Body["@odata.type"] == "#microsoft.graph.servicePrincipal", "object is typed #microsoft.graph.servicePrincipal, got %v", sp.Body["@odata.type"])
 		all := c.Status(c.Do(post, c.Graph("/directoryObjects/getByIds"), tok, map[string]any{"ids": []string{AdaUserID, BootSPID, "00000000-0000-4000-8000-00000000dead"}}), 200, "", "getByIds").Value()
 		c.Expect(len(all) == 2, "getByIds should resolve 2 of 3 ids, got %d", len(all))
 		users := c.Status(c.Do(post, c.Graph("/directoryObjects/getByIds"), tok, map[string]any{"ids": []string{AdaUserID, BootSPID}, "types": []string{"user"}}), 200, "", "getByIds types=user").Value()

@@ -11,6 +11,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
@@ -25,6 +26,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -73,6 +75,8 @@ func main() {
 			filter = args[0]
 		}
 		err = selftest(filter)
+	case "tour":
+		err = tour(args)
 	case "snapshot":
 		err = snapshot(args)
 	case "chaos":
@@ -99,6 +103,7 @@ func usage() {
   hosts                            print /etc/hosts entries
   requests [-n N]                  show recent API calls (what Terraform actually called)
   selftest [FILTER]                test every emulated service (live page: /_cloudtyke/selftest)
+  tour [-v] [-all] [FILTER]        walk through every service step by step (-v: bodies, -all: no pauses)
   snapshot save|restore|list NAME  save / restore emulator state
   chaos get|set|clear              fault injection (--throttle --errors --latency --async-delay)
 
@@ -381,4 +386,115 @@ func selftest(filter string) error {
 		return fmt.Errorf("self-test failed")
 	}
 	return nil
+}
+
+type tourCall struct {
+	Method, URL, Error, Step, Expect, Request, Response string
+	Status                                              int
+	Verified                                            []string
+}
+
+func tour(args []string) error {
+	verbose, nopause, filter := false, false, ""
+	for _, a := range args {
+		switch a {
+		case "-v", "--verbose":
+			verbose = true
+		case "-all", "--all", "--no-pause":
+			nopause = true
+		default:
+			filter = a
+		}
+	}
+	if fi, err := os.Stdin.Stat(); err != nil || fi.Mode()&os.ModeCharDevice == 0 {
+		nopause = true // not a terminal: print everything
+	}
+	out, reqErr := adminReq(http.MethodGet, "/selftest?format=json&service="+url.QueryEscape(filter), nil)
+	var rep struct {
+		Passed, Failed int
+		Results        []struct {
+			Section, Service, Title, Notes, Status, Error string
+			DurationMs                                    int64
+			Calls                                         []tourCall
+		}
+	}
+	if json.Unmarshal(out, &rep) != nil || len(rep.Results) == 0 {
+		if reqErr != nil {
+			return reqErr
+		}
+		return fmt.Errorf("unexpected self-test response: %s", out)
+	}
+	section := map[string]string{"ARM": "Azure Resource Manager", "Token": "Entra ID token service", "Graph": "Microsoft Graph"}
+	in := bufio.NewReader(os.Stdin)
+	for i, r := range rep.Results {
+		mark := "✅ working"
+		if r.Status != "pass" {
+			mark = "❌ " + r.Status
+		}
+		fmt.Printf("\n\033[1m[%d/%d] %s · %s   %s\033[0m\n", i+1, len(rep.Results), section[r.Section], r.Service, mark)
+		if r.Title != "" {
+			fmt.Printf("Checked:  %s\n", r.Title)
+		}
+		if r.Notes != "" {
+			fmt.Printf("Emulated: %s\n", strings.ReplaceAll(r.Notes, "`", ""))
+		}
+		fmt.Printf("%d HTTP calls in %dms\n\n", len(r.Calls), r.DurationMs)
+		for j, c := range r.Calls {
+			ok := c.Status < 400
+			if c.Expect != "" {
+				ok = false
+				for _, e := range strings.Split(c.Expect, " or ") {
+					ok = ok || strings.HasPrefix(e, strconv.Itoa(c.Status))
+				}
+			}
+			m := "✅"
+			if !ok {
+				m = "❌"
+			}
+			step := c.Step
+			if step == "" {
+				step = c.Method + " request"
+			}
+			got := strconv.Itoa(c.Status)
+			if c.Error != "" {
+				got += " " + c.Error
+			}
+			exp := ""
+			if c.Expect != "" {
+				exp = "expect " + c.Expect + ", "
+			}
+			fmt.Printf("  %2d %s %s  \033[2m(%sgot %s)\033[0m\n", j+1, m, step, exp, got)
+			fmt.Printf("        \033[2m%s %s\033[0m\n", c.Method, c.URL)
+			for _, v := range c.Verified {
+				fmt.Printf("        ✓ %s\n", v)
+			}
+			if verbose {
+				if c.Request != "" {
+					fmt.Printf("        request:\n%s\n", indent(c.Request, "          "))
+				}
+				if c.Response != "" {
+					fmt.Printf("        response:\n%s\n", indent(c.Response, "          "))
+				}
+			}
+		}
+		if r.Error != "" {
+			fmt.Printf("\n  ❌ %s\n", r.Error)
+		}
+		if !nopause && i < len(rep.Results)-1 {
+			fmt.Print("\n\033[2m[Enter] next service · [q] quit\033[0m ")
+			line, _ := in.ReadString('\n')
+			if strings.TrimSpace(strings.ToLower(line)) == "q" {
+				break
+			}
+		}
+	}
+	fmt.Printf("\n%d of %d services working. Browser tour: %s/_cloudtyke/selftest?tour=1\n", rep.Passed, rep.Passed+rep.Failed, baseURL())
+	if rep.Failed > 0 {
+		return fmt.Errorf("self-test failed")
+	}
+	return nil
+}
+
+func indent(s, pre string) string {
+	return pre + strings.ReplaceAll(s, "\n", "\n"+pre)
 }

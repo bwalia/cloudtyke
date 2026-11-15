@@ -18,6 +18,7 @@ type Factory func() (http.Handler, func(), error)
 //	GET /_cloudtyke/selftest                 HTML report (runs the suite)
 //	GET /_cloudtyke/selftest?format=json     JSON report
 //	GET /_cloudtyke/selftest?service=graph   only services matching "graph"
+//	GET /_cloudtyke/selftest?tour=1          step-by-step tour, one service per slide
 func Handler(domain string, services []admin.Service, factory Factory) http.Handler {
 	var mu sync.Mutex // one run at a time
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -49,6 +50,10 @@ func Handler(domain string, services []admin.Service, factory Factory) http.Hand
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(status)
+		if r.URL.Query().Get("tour") != "" {
+			_ = tourPage.Execute(w, map[string]any{"R": rep})
+			return
+		}
 		_ = page.Execute(w, map[string]any{"R": rep, "Filter": filter, "Sections": group(rep)})
 	})
 }
@@ -101,7 +106,7 @@ h1{font-size:22px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 20px}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;min-width:130px}
 .tile b{display:block;font-size:24px;font-variant-numeric:tabular-nums}.tile span{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
 .ok{color:var(--ok)}.bad{color:var(--bad)}
-.btn{margin-left:auto;background:var(--fg);color:var(--bg);border:0;border-radius:8px;padding:10px 16px;font-weight:600;text-decoration:none}
+.btn.alt{margin-left:0;background:var(--card);color:var(--fg);border:1px solid var(--line)}.btn{margin-left:auto;background:var(--fg);color:var(--bg);border:0;border-radius:8px;padding:10px 16px;font-weight:600;text-decoration:none}
 form{display:flex;gap:8px}input{padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg)}
 section{background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:18px;overflow:hidden}
 section h2{font-size:15px;margin:0;padding:12px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
@@ -122,13 +127,14 @@ table{border-collapse:collapse;width:100%}td{padding:3px 8px 3px 0;vertical-alig
  <div class="tile"><b class="{{if .R.Failed}}bad{{end}}">{{.R.Failed}}</b><span>failed</span></div>
  <div class="tile"><b>{{.R.DurationMs}} ms</b><span>{{.R.Started.Format "15:04:05 UTC"}}</span></div>
  <form method="get"><input name="service" placeholder="filter, e.g. graph" value="{{.Filter}}"></form>
- <a class="btn" href="?{{if .Filter}}service={{.Filter}}{{end}}">Run again</a>
+ <a class="btn" href="?tour=1{{if .Filter}}&amp;service={{.Filter}}{{end}}">Take the tour</a>
+ <a class="btn alt" href="?{{if .Filter}}service={{.Filter}}{{end}}">Run again</a>
 </div>
 {{range .Sections}}<section><h2><span>{{title .Name}}</span><span class="muted">{{.Passed}}/{{.Total}}</span></h2>
 {{range .Results}}<details{{if ne .Status "pass"}} open{{end}}><summary>
 <span class="pill {{.Status}}">{{.Status}}</span><code>{{.Service}}</code><span class="muted">{{.Title}}</span><span class="num">{{len .Calls}} call{{if ne (len .Calls) 1}}s{{end}}</span></summary>
 <div class="body">{{if .Error}}<div class="err">{{.Error}}</div>{{end}}
-{{if .Calls}}<table>{{range .Calls}}<tr><td class="s {{if ge .Status 500}}bad{{end}}">{{.Status}}</td><td><code>{{.Method}} {{.URL}}</code>{{if .Error}} <span class="muted">{{.Error}}</span>{{end}}</td></tr>{{end}}</table>{{end}}
+{{if .Calls}}<table>{{range .Calls}}<tr><td class="s {{if ge .Status 500}}bad{{end}}">{{.Status}}</td><td>{{if .Step}}<b>{{.Step}}</b><br>{{end}}<code>{{.Method}} {{.URL}}</code>{{if .Error}} <span class="muted">{{.Error}}</span>{{end}}</td></tr>{{end}}</table>{{end}}
 <p class="muted">{{.DurationMs}} ms</p></div></details>{{end}}
 </section>{{end}}
 <p class="muted">JSON: <code>?format=json</code> · returns HTTP 417 when anything fails.</p>

@@ -31,6 +31,7 @@ type Result struct {
 	Section    string `json:"section"`
 	Service    string `json:"service"`
 	Title      string `json:"title"`
+	Notes      string `json:"notes,omitempty"` // coverage-matrix notes
 	Status     string `json:"status"`
 	Error      string `json:"error,omitempty"`
 	DurationMs int64  `json:"durationMs"`
@@ -62,7 +63,7 @@ func NewRunner(h http.Handler, domain string) *Runner {
 
 // RunOne runs the check for a service.
 func (r *Runner) RunOne(svc admin.Service) Result {
-	res := Result{Section: svc.Section, Service: svc.ID}
+	res := Result{Section: svc.Section, Service: svc.ID, Notes: svc.Notes}
 	chk, ok := Checks[svc.ID]
 	if !ok {
 		res.Status = Missing

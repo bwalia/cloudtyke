@@ -99,13 +99,15 @@ the happy path, the error codes Terraform and the SDKs depend on, and RBAC / Gra
 | `make test-all SKIP_E2E=1` | unit, integration and service tests plus a report in `reports/` | ~15 s |
 | `make test-all` | the same plus the Terraform lifecycle with OpenTofu and Terraform | ~12 min |
 | `make selftest` / `bin/tyke azure selftest [FILTER]` | runs the checks inside the running emulator and prints ✅/❌ per service | <1 s |
+| `bin/tyke azure tour [-v] [-all] [FILTER]` | walks through each service step by step in the terminal, pausing after each (`-v` shows request/response bodies) | interactive |
 
 `make test-all` writes `reports/index.html` (open it in a browser), `reports/junit.xml` and `reports/summary.md`, prints a
 per-service table and exits non-zero if anything failed.
 
 **Live page for interviews and lab demos:** open <https://localhost/_cloudtyke/selftest> while the emulator is running.
 Every load runs the suite against a fresh in-memory emulator, so it never changes your state. Expand a service to see each
-HTTP call it made. Add `?service=graph` to filter, or `?format=json` for scripts; the page returns HTTP 417 when
+HTTP call it made, or click **Take the tour** (`?tour=1`) to step through the services one at a time with ← →: each step
+shows what it proves, the expected and actual result, the extra assertions and the request and response bodies. Add `?service=graph` to filter, or `?format=json` for scripts; the page returns HTTP 417 when
 anything fails, so `curl -f` works in scripts.
 
 ## Development
