@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenario C: upgrade an existing estate · Azure landing zones · CloudTyke Arena</title>
+<meta name="description" content="Bringing an existing Azure estate under Azure landing zones: management groups, moving subscriptions, policy audit then deny, hub networking, central logging.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/azure.css">
+</head>
+<body data-root=".." class="alz">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <nav id="alz-nav" aria-label="Azure landing zones pages"></nav>
+  <div class="alz-head">
+    <p class="eyebrow">Scenario C · brownfield</p>
+    <h1>Upgrade an existing Azure estate</h1>
+    <p class="lead">Northwind has used Azure for years without a plan. Subscriptions sit under the root, many people are Owner, VNets overlap and logs are scattered. You cannot stop the business to rebuild, so you bring the estate into a landing zone step by step.</p>
+  </div>
+
+  <section class="alz-fig" aria-labelledby="f1-h">
+    <span class="fig-n">Figure 1</span>
+    <h2 id="f1-h">Before and after, one step at a time</h2>
+    <p>Step from sprawl to a governed estate. Each step is safe on its own, and the apps keep running.</p>
+    <div id="brown-steps" class="card" style="margin-top:10px"></div>
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="Brownfield upgrade (scrolls sideways on small screens)" tabindex="0">
+          <svg id="brown" class="mw-xl" viewBox="0 0 1100 500" role="group" aria-label="Brownfield upgrade. Boxes are buttons that show details."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all.</p>
+        
+      </div>
+      <aside class="alz-panel" id="brown-panel" aria-label="Details for the selected box"></aside>
+    </div>
+  </section>
+  <section class="alz-fig" aria-labelledby="f2-h">
+    <h2 id="f2-h">Watch out for</h2>
+    <div class="cols2">
+      <div class="card"><h3>Moving a subscription changes its rules at once</h3><p>Role assignments inherited from the old parent disappear, and the new parent's policy applies. Check both before you move.</p></div>
+      <div class="card"><h3>Deny on day one breaks pipelines</h3><p>Start with audit (or DoNotEnforce) and read the compliance results. Fix, remediate, add exemptions with an expiry date, then enforce.</p></div>
+      <div class="card"><h3>Overlapping address spaces</h3><p>Two VNets with the same range cannot both peer to the hub. Plan an IP scheme first, then re-address the smaller or easier one.</p></div>
+      <div class="card"><h3>Owners everywhere</h3><p>Replace standing Owner rights with group-based roles and PIM. Keep two break-glass accounts.</p></div>
+    </div>
+  </section>
+  <aside class="stadium-tie" aria-label="Stadium link">
+    <span data-ic="stadium" data-size="40"></span>
+    <div>
+      <p><strong>In the stadium</strong></p>
+      <p>Renovating a stadium while matches still go on: build the new structure around the old one, move stands across one at a time, and post the safety code before you enforce it. See <a href="../chapters/03-safety-code.html">Chapter 3, The safety code</a>.</p>
+    </div>
+  </aside>
+
+  <nav id="alz-pager"></nav>
+</main>
+<footer class="site">CloudTyke Arena is a learning project. Contoso, Fabrikam and Northwind are fictional. Not affiliated with or endorsed by Microsoft. Azure, Microsoft Entra and the other product names are trademarks of Microsoft.</footer>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/alz-core.js"></script>
+<script src="../js/alz-brownfield.js"></script>
+</body>
+</html>

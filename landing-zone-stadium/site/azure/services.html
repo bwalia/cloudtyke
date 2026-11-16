@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Services catalogue · Azure landing zones · CloudTyke Arena</title>
+<meta name="description" content="Where common Azure services land in an application landing zone and which platform services they depend on.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/azure.css">
+</head>
+<body data-root=".." class="alz">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <nav id="alz-nav" aria-label="Azure landing zones pages"></nav>
+  <div class="alz-head">
+    <p class="eyebrow">Azure landing zones · what you build with</p>
+    <h1>The services catalogue</h1>
+    <p class="lead">Application landing zones hold the services that run your apps: compute, data, integration, AI and analytics, and the edge for online apps. Each one leans on the platform: private DNS, the firewall, identity, monitoring, policy and Defender. Pick a service to see its links.</p>
+  </div>
+
+  <section class="alz-fig" aria-labelledby="f1-h">
+    <span class="fig-n">Figure 1</span>
+    <h2 id="f1-h">Services and their platform dependencies</h2>
+    <p>Click a service: orange lines show which platform services it depends on. Click a platform service to see every workload that uses it. Badges mark what you can practise in CloudTyke.</p>
+    
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="Services catalogue (scrolls sideways on small screens)" tabindex="0">
+          <svg id="cat" class="mw-xl" viewBox="0 0 1100 600" role="group" aria-label="Services catalogue. Boxes are buttons that show details."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all.</p>
+        
+      </div>
+      <aside class="alz-panel" id="cat-panel" aria-label="Details for the selected box"></aside>
+    </div>
+  </section>
+  <aside class="stadium-tie" aria-label="Stadium link">
+    <span data-ic="stadium" data-size="40"></span>
+    <div>
+      <p><strong>In the stadium</strong></p>
+      <p>These are the event kits that roll onto the pitch: what changes from one event to the next. The stadium services they plug into never change. See <a href="../chapters/06-changeover.html">Chapter 6, The pitch and the changeover</a> and <a href="../chapters/07-team.html">Chapter 7, The team</a> for Kubernetes.</p>
+    </div>
+  </aside>
+
+  <nav id="alz-pager"></nav>
+</main>
+<footer class="site">CloudTyke Arena is a learning project. Contoso, Fabrikam and Northwind are fictional. Not affiliated with or endorsed by Microsoft. Azure, Microsoft Entra and the other product names are trademarks of Microsoft.</footer>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/alz-core.js"></script>
+<script src="../js/alz-services.js"></script>
+</body>
+</html>

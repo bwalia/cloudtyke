@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenario B: migrate · Azure landing zones · CloudTyke Arena</title>
+<meta name="description" content="Migrating on-premises workloads into Azure landing zones: assess with Azure Migrate, connect, the 5 Rs, wave planning, target landing zone choice, cutover and decommission.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/azure.css">
+</head>
+<body data-root=".." class="alz">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <nav id="alz-nav" aria-label="Azure landing zones pages"></nav>
+  <div class="alz-head">
+    <p class="eyebrow">Scenario B · migrate</p>
+    <h1>Migrate existing workloads from on-premises</h1>
+    <p class="lead">Fabrikam must leave its data centre in 18 months. The landing zone comes first, so every migrated server lands somewhere safe and connected. Then apps move in waves, each with the right strategy and the right landing zone.</p>
+  </div>
+
+  <section class="alz-fig" aria-labelledby="f1-h">
+    <span class="fig-n">Figure 1</span>
+    <h2 id="f1-h">The migration journey</h2>
+    <p>Eight steps from discovery to switching off the old servers. Step through it, or click any box.</p>
+    <div id="journey-steps" class="card" style="margin-top:10px"></div>
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="The migration journey (scrolls sideways on small screens)" tabindex="0">
+          <svg id="journey" class="mw-xl" viewBox="0 0 1100 320" role="group" aria-label="The migration journey. Boxes are buttons that show details."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all.</p>
+        
+      </div>
+      <aside class="alz-panel" id="journey-panel" aria-label="Details for the selected box"></aside>
+    </div>
+  </section>
+  <section class="alz-fig" aria-labelledby="f2-h">
+    <span class="fig-n">Figure 2</span>
+    <h2 id="f2-h">Pick a strategy: the 5 Rs</h2>
+    <p>The Cloud Adoption Framework describes five ways to rationalise an app when you move it. Pick one to see an example.</p>
+    <div class="row alz-controls" id="rs-pick"></div>
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="The 5 Rs (scrolls sideways on small screens)" tabindex="0">
+          <svg id="rs" class="mw-m" viewBox="0 0 880 330" role="group" aria-label="The 5 Rs. Boxes are buttons that show details."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all.</p>
+        
+      </div>
+      <aside class="alz-panel" id="rs-out" aria-live="polite"></aside>
+    </div>
+  </section>
+  <section class="alz-fig" aria-labelledby="f3-h">
+    <span class="fig-n">Figure 3</span>
+    <h2 id="f3-h">Which landing zone should it go to?</h2>
+    <p>Answer the questions in order by clicking Yes or No in the drawing, or pick an example app. The highlighted branch leads to the target.</p>
+    <div class="btn-row" id="tree-apps"></div>
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="Target landing zone decision tree (scrolls sideways on small screens)" tabindex="0">
+          <svg id="tree" class="mw-xl" viewBox="0 0 1080 490" role="group" aria-label="Target landing zone decision tree. Boxes are buttons that show details."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all.</p>
+        
+      </div>
+      <aside class="alz-panel" id="tree-out" aria-live="polite"></aside>
+    </div>
+  </section>
+  <section class="alz-fig" aria-labelledby="ct-h">
+    <div class="ct card"><h3 id="ct-h">Practise in CloudTyke</h3><p>Azure Migrate and Site Recovery are not emulated. Use CloudTyke for the landing zone side of each wave: build the target spokes, NSGs, peering, private DNS and RBAC with Terraform, and test that the policy allows what the wave needs, before the servers move.</p></div>
+  </section>
+  <aside class="stadium-tie" aria-label="Stadium link">
+    <span data-ic="stadium" data-size="40"></span>
+    <div>
+      <p><strong>In the stadium</strong></p>
+      <p>Moving an event from an old ground to the new stadium: survey the old ground, open the gates, pick the right stand for each crowd, then move in stages. <a href="../chapters/08-rush.html">Chapter 8, Match day rush</a> covers what happens when the crowd arrives.</p>
+    </div>
+  </aside>
+
+  <nav id="alz-pager"></nav>
+</main>
+<footer class="site">CloudTyke Arena is a learning project. Contoso, Fabrikam and Northwind are fictional. Not affiliated with or endorsed by Microsoft. Azure, Microsoft Entra and the other product names are trademarks of Microsoft.</footer>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/alz-core.js"></script>
+<script src="../js/alz-migrate.js"></script>
+</body>
+</html>

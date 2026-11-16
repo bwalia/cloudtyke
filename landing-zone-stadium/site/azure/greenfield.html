@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scenario A: start fresh · Azure landing zones · CloudTyke Arena</title>
+<meta name="description" content="Greenfield Azure landing zones: build the platform first, then the first workloads, and when it pays back.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/azure.css">
+</head>
+<body data-root=".." class="alz">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <nav id="alz-nav" aria-label="Azure landing zones pages"></nav>
+  <div class="alz-head">
+    <p class="eyebrow">Scenario A · greenfield</p>
+    <h1>Start fresh: platform first, then workloads</h1>
+    <p class="lead">Contoso is new to Azure. There is nothing to migrate yet, so build the platform landing zone first, then vend landing zones for the first apps. The Azure landing zones accelerator deploys the platform from Bicep or Terraform. You can start small and grow it.</p>
+  </div>
+
+  <section class="alz-fig" aria-labelledby="f1-h">
+    <span class="fig-n">Figure 1</span>
+    <h2 id="f1-h">The build order</h2>
+    <p>An example plan for a small team. Platform lanes run in parallel where they can. Once vending is ready, workloads start quickly and can run side by side.</p>
+    <div id="order-steps" class="card" style="margin-top:10px"></div>
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="Build order (scrolls sideways on small screens)" tabindex="0">
+          <svg id="order" class="mw-l" viewBox="0 0 1050 390" role="group" aria-label="Build order. Boxes are buttons that show details."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all.</p>
+        
+      </div>
+      <aside class="alz-panel" id="order-panel" aria-label="Details for the selected box"></aside>
+    </div>
+  </section>
+  <section class="alz-fig" aria-labelledby="f2-h">
+    <span class="fig-n">Figure 2</span>
+    <h2 id="f2-h">When does it pay back?</h2>
+    <p>Without a landing zone, each workload builds its own network, security, logging and access. With one, you pay once for the platform and a little per workload. Move the sliders to match your own guesses.</p>
+    <div class="alz-split wide-panel">
+      <div class="alz-canvas" role="region" aria-label="Effort chart">
+        <svg id="effort" class="alz-svg mw-m" viewBox="0 0 860 340" role="img" aria-label="Setup effort against the number of workloads, with and without a landing zone"></svg>
+      </div>
+      <div class="alz-panel" style="position:static">
+        <div class="range-row"><label for="wl">Workloads: <strong id="wl-v"></strong></label><input type="range" id="wl" min="1" max="12" value="4"></div>
+        <div class="range-row"><label for="pf">Platform build, team-weeks: <strong id="pf-v"></strong></label><input type="range" id="pf" min="4" max="30" value="12"></div>
+        <div class="range-row"><label for="per">Setup per workload without a landing zone, team-weeks: <strong id="per-v"></strong></label><input type="range" id="per" min="1" max="12" value="5"></div>
+        <div id="effort-out" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+  <aside class="stadium-tie" aria-label="Stadium link">
+    <span data-ic="stadium" data-size="40"></span>
+    <div>
+      <p><strong>In the stadium</strong></p>
+      <p>Build the stadium before the first match. Gates, seats and the safety code come first; then every event is quick to host. <a href="../chapters/01-build.html">Chapter 1, Build the stadium</a> is this scenario as a puzzle.</p>
+    </div>
+  </aside>
+
+  <nav id="alz-pager"></nav>
+</main>
+<footer class="site">CloudTyke Arena is a learning project. Contoso, Fabrikam and Northwind are fictional. Not affiliated with or endorsed by Microsoft. Azure, Microsoft Entra and the other product names are trademarks of Microsoft.</footer>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/alz-core.js"></script>
+<script src="../js/alz-greenfield.js"></script>
+</body>
+</html>

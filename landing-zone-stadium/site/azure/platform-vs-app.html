@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platform vs application landing zones · Azure landing zones · CloudTyke Arena</title>
+<meta name="description" content="Who owns what in Azure landing zones: the platform team, app teams and shared responsibility, under three management models.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/azure.css">
+</head>
+<body data-root=".." class="alz">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <nav id="alz-nav" aria-label="Azure landing zones pages"></nav>
+  <div class="alz-head">
+    <p class="eyebrow">Azure landing zones · ownership</p>
+    <h1>Platform vs application landing zones</h1>
+    <p class="lead">A platform landing zone holds shared services that one platform team runs for everyone. An application landing zone is a subscription for one workload. The line between the two teams moves depending on how you choose to manage application landing zones.</p>
+  </div>
+
+  <section class="alz-fig" aria-labelledby="f1-h">
+    <span class="fig-n">Figure 1</span>
+    <h2 id="f1-h">Who owns each layer</h2>
+    <p>Rows run from the shared platform at the top to the app at the bottom. The box shows who owns that layer. Change the management model to see the line move. The Cloud Adoption Framework describes these three models.</p>
+    <div class="row alz-controls" id="own-model"></div><p class="small" id="own-desc" aria-live="polite"></p>
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="Ownership of each layer (scrolls sideways on small screens)" tabindex="0">
+          <svg id="own" class="mw-l" viewBox="0 0 1000 480" role="group" aria-label="Ownership of each layer. Boxes are buttons that show details."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all.</p>
+        
+      </div>
+      <aside class="alz-panel" id="own-panel" aria-label="Details for the selected box"></aside>
+    </div>
+  </section>
+  <section class="alz-fig" aria-labelledby="f2-h">
+    <h2 id="f2-h">Shared responsibility, in plain words</h2>
+    <div class="cols2">
+      <div class="card"><h3>The platform team promises</h3><ul>
+        <li>A landing zone that is ready on day one: network, access, policy, logs</li>
+        <li>A working hub, DNS and firewall, with a clear way to ask for rules</li>
+        <li>Guardrails as code, with exemptions that expire</li>
+        <li>Vending that is fast and predictable</li></ul></div>
+      <div class="card"><h3>The app team promises</h3><ul>
+        <li>Build only through code and pipelines</li>
+        <li>Stay inside the guardrails, or ask for an exemption</li>
+        <li>Own the app's security: code, dependencies, data, secrets</li>
+        <li>Watch its own alerts and costs</li></ul></div>
+    </div>
+  </section>
+  <aside class="stadium-tie" aria-label="Stadium link">
+    <span data-ic="stadium" data-size="40"></span>
+    <div>
+      <p><strong>In the stadium</strong></p>
+      <p>The platform team is the stadium crew: they build and run the shell, gates, control room and safety code. App teams are event organisers: they bring the show onto the pitch. See the split in <a href="../chapters/06-changeover.html">Chapter 6, The pitch and the changeover</a>.</p>
+    </div>
+  </aside>
+
+  <nav id="alz-pager"></nav>
+</main>
+<footer class="site">CloudTyke Arena is a learning project. Contoso, Fabrikam and Northwind are fictional. Not affiliated with or endorsed by Microsoft. Azure, Microsoft Entra and the other product names are trademarks of Microsoft.</footer>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/alz-core.js"></script>
+<script src="../js/alz-platform-app.js"></script>
+</body>
+</html>
