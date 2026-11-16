@@ -63,6 +63,7 @@ export default function Home() {
             <li><a href="#start">Quickstart</a></li>
             <li><a href="#examples">Examples</a></li>
             <li><a href="#academy">Academy</a></li>
+            <li><a href="/arena/">Arena</a></li>
             <li><a href="#hosted">Hosted</a></li>
           </ul>
           <a className="btn small ghost" href={GH}>GitHub</a>
@@ -237,6 +238,13 @@ export default function Home() {
               <div className="mod" key={n}><small>Module {n}</small><b>{t}</b><span>{s}</span></div>
             ))}
           </div>
+          <a className="arena" href="/arena/">
+            <span className="eyebrow">New · CloudTyke Arena</span>
+            <b>Landing zones, explained with a stadium.</b>
+            <span>Build the stadium once, host any event. Click the stands, gates and pitch to see each part in Azure,
+              AWS and GCP, then solve nine puzzle chapters, starting with building the whole landing zone piece by piece.</span>
+            <span className="go">Open the Arena →</span>
+          </a>
         </div>
       </section>
 

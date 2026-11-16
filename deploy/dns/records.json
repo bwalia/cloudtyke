@@ -94,45 +94,44 @@
     {
       "name": "*.vault",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: Key Vault data plane via wslproxy lon1/lon2"
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox data plane via lon1 (on-demand certs)"
     },
     {
       "name": "*.blob.storage",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: Blob via wslproxy lon1/lon2"
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox data plane via lon1 (on-demand certs)"
     },
     {
       "name": "*.file.storage",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: Azure Files via wslproxy lon1/lon2"
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox data plane via lon1 (on-demand certs)"
     },
     {
       "name": "*.queue.storage",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: Queues via wslproxy lon1/lon2"
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox data plane via lon1 (on-demand certs)"
     },
     {
       "name": "*.table.storage",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: Tables via wslproxy lon1/lon2"
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox data plane via lon1 (on-demand certs)"
     },
     {
       "name": "*.azurecr",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: ACR via wslproxy lon1/lon2"
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox data plane via lon1 (on-demand certs)"
     },
     {
       "name": "hello",
       "type": "CNAME",
-      "content": "lon1.pop0.uk",
-      "comment": "sandbox: hello-web via wslproxy lon1/lon2",
-      "ttl": 60
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: hello-web via wslproxy lon1/lon2"
     }
   ]
 }

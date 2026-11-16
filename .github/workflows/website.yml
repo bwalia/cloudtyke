@@ -5,9 +5,9 @@ name: website (GitHub Pages)
 on:
   push:
     branches: [main]
-    paths: ["website/**", ".github/workflows/website.yml"]
+    paths: ["website/**", "landing-zone-stadium/**", ".github/workflows/website.yml"]
   pull_request:
-    paths: ["website/**", ".github/workflows/website.yml"]
+    paths: ["website/**", "landing-zone-stadium/**", ".github/workflows/website.yml"]
   workflow_dispatch:
 
 permissions:
@@ -38,6 +38,7 @@ jobs:
           test -f out/index.html
           test "$(cat out/CNAME)" = "www.cloudtyke.dev"
           grep -q "A small cloud for" out/index.html
+          test -f out/arena/site/index.html && test -f out/arena/site/chapters/01-build.html
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:

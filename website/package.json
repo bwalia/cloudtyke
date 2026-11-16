@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 4320",
+    "prebuild": "rm -rf public/arena && mkdir -p public/arena && cp -R ../landing-zone-stadium/index.html ../landing-zone-stadium/site ../landing-zone-stadium/lessons public/arena/",
     "build": "next build",
     "typecheck": "tsc --noEmit"
   },
