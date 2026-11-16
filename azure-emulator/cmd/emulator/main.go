@@ -73,6 +73,21 @@ func serve() int {
 		"version", version.Version, "listen", cfg.Listen, "domain", cfg.Domain, "ephemeral", cfg.Ephemeral,
 		"metadata_host", cfg.Host(config.SubManagement), "ca", filepath.Join(cfg.CertExportDir, "ca.pem"))
 	logger.Warn("local development emulator: not affiliated with Microsoft; never expose this endpoint to untrusted networks")
+	if cfg.HTTPListen != "" {
+		plain := &http.Server{Addr: cfg.HTTPListen, Handler: a.Handler, ReadHeaderTimeout: 10 * time.Second,
+			ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelDebug)}
+		go func() {
+			<-ctx.Done()
+			_ = plain.Close()
+		}()
+		go func() {
+			logger.Warn("also serving plain HTTP: only for a proxy that terminates TLS", "listen", cfg.HTTPListen)
+			if err := plain.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				logger.Error("plain HTTP listener failed", "err", err)
+				stop()
+			}
+		}()
+	}
 	if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
 		logger.Error("server failed", "err", err)
 		return 1

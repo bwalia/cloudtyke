@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4. The club safe · CloudTyke Arena</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-root=".." data-chapter="4">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <div id="chapter-head"></div>
+
+  <section class="split" aria-label="The strong room">
+    <div class="drawing"><svg id="room" class="scene" viewBox="0 0 640 400" role="group" aria-label="The club strong room. Each part is a button."></svg></div>
+    <div class="card stack">
+      <h2 style="margin-top:0">The strong room</h2>
+      <p>The strong room is <strong>never rebuilt</strong>. What is inside changes per event: each event gets its own lockers, and each app opens only its own.</p>
+      <p class="small muted">Hover or tap each part of the room. Click for the full story.</p>
+    </div>
+  </section>
+
+  <h2>Step 1. Find the key taped to the door</h2>
+  <section class="split even" aria-label="Find the secret">
+    <div class="stack">
+      <p>This is the Derby app's settings file. Somewhere in it is a key taped to the door. Click the line.</p>
+      <div class="cfg" id="cfg" role="list" aria-label="Settings file, one button per line"></div>
+    </div>
+    <div class="card stack">
+      <div id="find-fb" class="fb" aria-live="polite"><p class="muted">Click a line on the left.</p></div>
+      <div id="swap" hidden>
+        <h3>Step 2. Swap it for a wristband</h3>
+        <p>How should the app get its database password?</p>
+        <div class="choice-list" id="swap-choices"></div>
+        <div id="swap-fb" class="fb" aria-live="polite"></div>
+      </div>
+    </div>
+  </section>
+
+  <h2>Step 3. Test the lockers</h2>
+  <section class="split even" aria-label="Locker tests">
+    <div class="card stack">
+      <p>The Derby app wears its wristband. Which doors open?</p>
+      <div class="choice-list">
+        <button type="button" class="btn" data-t="own">Open the Derby locker</button>
+        <button type="button" class="btn" data-t="other">Open the Summer locker</button>
+        <button type="button" class="btn" data-t="purge">Throw the trophy key away for good</button>
+      </div>
+    </div>
+    <div class="card stack">
+      <div id="test-out" aria-live="polite"><p class="muted">Pick a test.</p></div>
+    </div>
+  </section>
+
+  <section id="quiz" style="margin-top:28px"></section>
+  <div id="chapter-foot"></div>
+</main>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/ch04-safe.js"></script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+# The hosted CloudTyke sandbox on k3s1: emulator + dashboard in namespace
+# "cloudtyke", published through the wslproxy edges (lon1/lon2) as
+# *.cloudtyke.dev. Applied by deploy.sh, which fills in ${IMAGE_TAG} and
+# creates the secrets (seed with fresh credentials, admin token, dashboard
+# password). Nothing secret lives in this file.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cloudtyke
+  labels: { app.kubernetes.io/part-of: cloudtyke }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: emulator-data, namespace: cloudtyke }
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: longhorn
+  resources: { requests: { storage: 2Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emulator
+  namespace: cloudtyke
+  labels: { app: emulator }
+spec:
+  replicas: 1
+  strategy: { type: Recreate } # one writer for the bbolt state file
+  selector: { matchLabels: { app: emulator } }
+  template:
+    metadata: { labels: { app: emulator } }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, fsGroup: 65532, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: emulator
+          image: bwalia/cloudtyke-emulator:${IMAGE_TAG}
+          args: ["serve"]
+          env:
+            - { name: CLOUDTYKE_DOMAIN, value: cloudtyke.dev }
+            - { name: CLOUDTYKE_LISTEN, value: ":8443" }       # HTTPS (own CA), for the dashboard
+            - { name: CLOUDTYKE_HTTP_LISTEN, value: ":8080" }  # plain HTTP, for traefik behind the edges
+            - { name: CLOUDTYKE_PUBLIC_PORT, value: "443" }
+            - { name: CLOUDTYKE_TRUST_FORWARDED_HOST, value: "true" }
+            - { name: CLOUDTYKE_SEED_FILE, value: /seed/seed.yaml }
+            - { name: CLOUDTYKE_AKS_BACKEND, value: stub }
+            - { name: CLOUDTYKE_TRUSTED_ISSUERS_FILE, value: /issuers/issuers.json } # this cluster's SA issuer
+            - { name: CLOUDTYKE_DOCS_URL, value: "https://github.com/bwalia/cloudtyke/blob/main/azure-emulator/docs/coverage.md" }
+            - name: CLOUDTYKE_ADMIN_TOKEN
+              valueFrom: { secretKeyRef: { name: cloudtyke-admin, key: token } }
+          ports:
+            - { name: https, containerPort: 8443 }
+            - { name: http, containerPort: 8080 }
+          readinessProbe: { httpGet: { path: /_cloudtyke/health, port: http }, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /_cloudtyke/health, port: http }, periodSeconds: 20, failureThreshold: 6 }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 512Mi }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+            - { name: seed, mountPath: /seed, readOnly: true }
+            - { name: certs, mountPath: /certs }
+            - { name: issuers, mountPath: /issuers, readOnly: true }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: emulator-data }
+        - name: seed
+          secret: { secretName: cloudtyke-seed }
+        - name: certs
+          emptyDir: {}
+        - name: issuers
+          configMap: { name: cloudtyke-issuers }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: emulator, namespace: cloudtyke }
+spec:
+  selector: { app: emulator }
+  ports:
+    - { name: http, port: 80, targetPort: http }
+    - { name: https, port: 8443, targetPort: https }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  namespace: cloudtyke
+  labels: { app: dashboard }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: dashboard } }
+  template:
+    metadata: { labels: { app: dashboard } }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 1000, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: dashboard
+          image: bwalia/cloudtyke-dashboard:${IMAGE_TAG}
+          env:
+            - { name: CLOUDTYKE_URL, value: "https://emulator.cloudtyke.svc.cluster.local:8443" }
+            - { name: CLOUDTYKE_DOMAIN, value: cloudtyke.dev }
+            - { name: CLOUDTYKE_DASHBOARD_USER, value: cloudtyke }
+            - name: CLOUDTYKE_DASHBOARD_PASSWORD
+              valueFrom: { secretKeyRef: { name: cloudtyke-dashboard, key: password } }
+            - name: CLOUDTYKE_ADMIN_TOKEN
+              valueFrom: { secretKeyRef: { name: cloudtyke-admin, key: token } }
+            - name: CLOUDTYKE_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: cloudtyke-admin, key: bootstrap-secret } }
+            - name: CLOUDTYKE_READER_CLIENT_SECRET
+              valueFrom: { secretKeyRef: { name: cloudtyke-admin, key: reader-secret } }
+          ports: [{ name: http, containerPort: 4310 }]
+          readinessProbe: { tcpSocket: { port: http }, periodSeconds: 5 }
+          resources:
+            requests: { cpu: 20m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: dashboard, namespace: cloudtyke }
+spec:
+  selector: { app: dashboard }
+  ports: [{ name: http, port: 80, targetPort: http }]
+---
+# traefik routes by Host. The edges send each fixed name as its own Host;
+# on-demand data-plane names (<vault>.vault.cloudtyke.dev, ...) arrive as
+# data.cloudtyke.dev with the real name in X-Original-Host.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cloudtyke
+  namespace: cloudtyke
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: management.cloudtyke.dev
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: emulator, port: { name: http } } } }] }
+    - host: login.cloudtyke.dev
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: emulator, port: { name: http } } } }] }
+    - host: graph.cloudtyke.dev
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: emulator, port: { name: http } } } }] }
+    - host: oidc.cloudtyke.dev
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: emulator, port: { name: http } } } }] }
+    - host: data.cloudtyke.dev
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: emulator, port: { name: http } } } }] }
+    - host: portal.cloudtyke.dev
+      http: { paths: [{ path: /, pathType: Prefix, backend: { service: { name: dashboard, port: { name: http } } } }] }

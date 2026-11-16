@@ -47,6 +47,18 @@ variable "allow_public_blob" {
   default     = false
 }
 
+variable "federation_issuer" {
+  description = "OIDC issuer the federated credential trusts. Empty = the AKS cluster's own issuer; the hosted sandbox sets the issuer of the Kubernetes cluster the app really runs in."
+  type        = string
+  default     = ""
+}
+
+variable "app_namespace" {
+  description = "Kubernetes namespace of the app's service account (hello-web)."
+  type        = string
+  default     = "default"
+}
+
 data "azurerm_client_config" "current" {}
 
 resource "random_string" "suffix" {
@@ -188,11 +200,11 @@ resource "azurerm_user_assigned_identity" "app" {
 }
 
 resource "azurerm_federated_identity_credential" "app" {
-  name                      = "aks-default-hello-web"
+  name                      = "aks-${var.app_namespace}-hello-web"
   user_assigned_identity_id = azurerm_user_assigned_identity.app.id
   audience                  = ["api://AzureADTokenExchange"]
-  issuer                    = azurerm_kubernetes_cluster.hello.oidc_issuer_url
-  subject                   = "system:serviceaccount:default:hello-web"
+  issuer                    = var.federation_issuer != "" ? var.federation_issuer : azurerm_kubernetes_cluster.hello.oidc_issuer_url
+  subject                   = "system:serviceaccount:${var.app_namespace}:hello-web"
 }
 
 resource "azurerm_role_assignment" "app_kv" {

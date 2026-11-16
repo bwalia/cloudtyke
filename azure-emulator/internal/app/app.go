@@ -111,6 +111,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	aks, dataPlanes := registerPhase2(armSrv, aksBackend(cfg, logger))
 	aks.CAPEM = bundle.CAPEM
 	authSvc.IssuerJWKS = aks.JWKSForIssuer
+	if err := loadTrustedIssuers(cfg.TrustedIssuersFile, authSvc); err != nil {
+		return nil, err
+	}
 
 	services := admin.Services(armSrv.Registry)
 	selfTest := selftest.Handler(cfg.Domain, services, func() (http.Handler, func(), error) {
@@ -130,6 +133,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		Kube:       aks.KubeAPI,
 		DataPlanes: dataPlanes,
 		OIDC:       aks.OIDCHandler(),
+		Exists:     dataPlaneExists(cfg, st),
 		Admin:      &admin.Server{Cfg: cfg, Store: st, Registry: armSrv.Registry, Log: reqLog, Chaos: ch, CAPEM: bundle.CAPEM, Seed: seedFile, WriteMu: &armSrv.WriteMu, SelfTest: selfTest, Network: network.LabHandler(armSrv)},
 		Log:        reqLog,
 		Logger:     logger,

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>8. Match day rush · CloudTyke Arena</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-root=".." data-chapter="8">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <div id="chapter-head"></div>
+
+  <section class="split" aria-label="Match day rush">
+    <div class="stack">
+      <div class="drawing"><svg id="rush" class="scene" viewBox="0 0 720 320" role="group" aria-label="Fans drive to two car parks, then walk over a footbridge to the stadium."></svg></div>
+      <div class="meters">
+        <div class="meter" id="mm-wait"><b id="r-wait">0</b><span>fans waiting</span></div>
+        <div class="meter" id="mm-away"><b id="r-away">0</b><span>fans turned away</span></div>
+        <div class="meter green" id="mm-load"><b id="r-load">0%</b><span>bridge load (peak <span id="r-peak">0%</span>)</span></div>
+      </div>
+      <p class="small muted" id="clock" aria-live="off"></p>
+    </div>
+    <div class="card stack">
+      <h2 style="margin-top:0">Keep the bridge green</h2>
+      <p class="small">Fans arrive by road before kick-off and leave after the final whistle. Try it with no controls first. Then turn the controls on, one by one.</p>
+      <fieldset class="kitset"><legend>Controls</legend>
+        <label><input type="checkbox" id="c-auto"> Turnstile autoscaling</label>
+        <label><input type="checkbox" id="c-queue"> A calm waiting queue</label>
+        <label><input type="checkbox" id="c-limit"> Weight limit at the bridge entrance</label>
+        <label><input type="checkbox" id="c-jitter"> Jittered exits (leave stand by stand)</label>
+        <label>Overflow car park: <select id="c-over" aria-label="Overflow car park size"><option value="1000">big enough (1000)</option><option value="300">too small (300)</option></select></label>
+      </fieldset>
+      <div class="row">
+        <button type="button" class="btn primary" id="go">Start match day</button>
+        <button type="button" class="btn" id="down">Region down: close the main car park</button>
+        <button type="button" class="btn ghost" id="reset">Reset</button>
+      </div>
+      <div id="rush-fb" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <h2>Three pictures for staying up</h2>
+  <section class="strip-grid" aria-label="Key lessons">
+    <article class="story"><div><h3>The overflow car park must be big enough</h3><p>If the second region is too small, failover just moves the crowd to a place that also breaks. Reserve the capacity and test it.</p><p class="lesson"><strong>RTO</strong> is how long until the overflow car park is open. <strong>RPO</strong> is how many ticket sales you lose in the switch.</p></div></article>
+    <article class="story"><div><h3>Don't let everyone rush at once</h3><p>After an outage, every client retries at the same moment. Spread them out with backoff and jitter, queues and rate limits.</p><p class="lesson">Open extra gates <em>before</em> kick-off too: scheduled scaling.</p></div></article>
+    <article class="story"><div><h3>Weight limits at the entrance</h3><p>A limit written on a sign does nothing. Enforce it at the door: rate limits, load shedding with <code>429</code> or <code>503</code>, and a circuit breaker that closes a gate when the crowd behind it is crushing.</p></div></article>
+  </section>
+
+  <h2>Bridges that taught engineers these lessons</h2>
+  <p class="muted">Real people died in some of these. They are told here briefly and with respect, because the lessons saved lives later. Sources are linked in the README.</p>
+  <section class="strip-grid" id="bridges" aria-label="Bridge stories"></section>
+
+  <section id="quiz" style="margin-top:28px"></section>
+  <div id="chapter-foot"></div>
+</main>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/rush-model.js"></script>
+<script src="../js/ch08-rush.js"></script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CloudTyke Arena: learn landing zones with a stadium</title>
+<meta name="description" content="An interactive stadium that teaches cloud landing zones in Azure, AWS and GCP. Built once, host any event.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-root=".">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <section class="hero" aria-labelledby="hero-h">
+    <div>
+      <div class="drawing">
+        <svg id="stadium" class="stadium" role="group" aria-label="Interactive stadium. Each part is a button that explains its cloud meaning."></svg>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button type="button" class="btn" id="lot-toggle" aria-pressed="false">Flip to the studio lot</button>
+        <button type="button" class="btn" id="fan-btn">Follow a fan</button>
+        <span class="muted small">Hover, focus or tap any part. Click it for the full story.</span>
+      </div>
+      <p class="small fb" id="fan-step" aria-live="polite"></p>
+    </div>
+    <div class="stack">
+      <p class="eyebrow">Cloud landing zones, the easy way</p>
+      <h1 id="hero-h">Build the stadium once. Host any event.</h1>
+      <p class="lead" id="one-line"></p>
+      <div>
+        <h2 class="eyebrow" style="margin:0 0 6px">Pick your venue</h2>
+        <div class="venues" role="radiogroup" aria-label="Pick your venue" id="venues"></div>
+      </div>
+      <div>
+        <h2 class="eyebrow" style="margin:0 0 6px">Pick your cloud</h2>
+        <div class="seg" role="radiogroup" aria-label="Cloud (same as the top bar)" id="hero-cloud"></div>
+        <p class="small muted" data-cloud-note></p>
+      </div>
+      <p><a class="btn primary" href="chapters/01-build.html">Start: build the stadium →</a></p>
+      <p class="small muted">Every piece shows a badge: <span class="badge perm" id="b-perm"></span> or <span class="badge change" id="b-change"></span></p>
+    </div>
+  </section>
+
+  <section aria-labelledby="same-h">
+    <h2 id="same-h">What stays, what changes</h2>
+    <div class="split even">
+      <div class="card">
+        <h3>Same for every event</h3>
+        <ul>
+          <li><strong>Entry gates:</strong> every fan comes in the same way and is checked.</li>
+          <li><strong>Seats and stands:</strong> the same standard seating.</li>
+          <li><strong>Security:</strong> very important, and the same for every sport.</li>
+          <li><strong>Governance:</strong> the same stadium rules for every event.</li>
+        </ul>
+        <p class="muted small">In the cloud: the platform team builds network, security and governance once.</p>
+        <h3>Changes per event</h3>
+        <p><strong>The pitch</strong> and what is set up on it. Football on Saturday, a cricket Test next week, a concert after that.</p>
+        <p class="muted small">In the cloud: each app team gets its own landing zone and builds its app there. Swap it fast. The platform does not move.</p>
+      </div>
+      <div class="card">
+        <h3>The hierarchy (as the CloudTyke dashboard shows it)</h3>
+        <p class="small muted">Click a row to light up that part of the stadium.</p>
+        <div id="tree"></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="ch-h">
+    <h2 id="ch-h">Nine chapters you play like puzzles</h2>
+    <p class="muted">Each one is a small scene with a few steps, instant feedback and three questions at the end. Your ticks are saved in this browser.</p>
+    <ol class="chapters" id="chapters"></ol>
+  </section>
+
+  <section aria-labelledby="real-h">
+    <h2 id="real-h">Real venues already work like a landing zone</h2>
+    <p class="muted">People have built "one place, many events, fast swaps" for 2,000 years. Our arena is made up. These places are real.</p>
+    <div class="strip-grid" id="stories"></div>
+  </section>
+
+  <section aria-labelledby="more-h">
+    <h2 id="more-h">Go further</h2>
+    <div class="split even">
+      <div class="card">
+        <h3>Ten short lessons</h3>
+        <p>Read them in the <code>lessons/</code> folder next to this site. Each takes 15 to 30 minutes: Why it matters, How it works, Do it, Break it, Check yourself, In real Azure, and the same idea in AWS and GCP.</p>
+        <p><a href="../lessons/01-the-land.md">Start with lesson 1: the land</a></p>
+      </div>
+      <div class="card">
+        <h3>Run it for real on CloudTyke</h3>
+        <p>The Azure version runs on the CloudTyke emulator on your laptop. No subscription, no bill.</p>
+        <pre>bash landing-zone-stadium/scripts/up.sh
+bash landing-zone-stadium/verify.sh</pre>
+        <p class="small muted">Then open the dashboard on <code>http://localhost:4310</code> and find <code>sub-events</code> under Landing Zones.</p>
+      </div>
+    </div>
+    <p style="margin-top:18px"><button type="button" class="btn danger" id="reset">Reset my progress</button></p>
+  </section>
+</main>
+<footer class="site">CloudTyke Arena is a made-up venue. Brands here (Contoso, Northwind, Fabrikam) are fictional. Not affiliated with Microsoft, Amazon or Google.</footer>
+<script src="content/content.js"></script>
+<script src="content/venues.js"></script>
+<script src="js/core.js"></script>
+<script src="js/stadium.js"></script>
+<script src="js/home.js"></script>
+</body>
+</html>

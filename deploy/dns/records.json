@@ -1,0 +1,137 @@
+{
+  "zone": "cloudtyke.dev",
+  "records": [
+    {
+      "name": "www",
+      "type": "CNAME",
+      "content": "bwalia.github.io",
+      "comment": "GitHub Pages (website/)"
+    },
+    {
+      "name": "@",
+      "type": "A",
+      "content": "185.199.108.153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "A",
+      "content": "185.199.109.153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "A",
+      "content": "185.199.110.153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "A",
+      "content": "185.199.111.153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "AAAA",
+      "content": "2606:50c0:8000::153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "AAAA",
+      "content": "2606:50c0:8001::153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "AAAA",
+      "content": "2606:50c0:8002::153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "@",
+      "type": "AAAA",
+      "content": "2606:50c0:8003::153",
+      "comment": "GitHub Pages apex"
+    },
+    {
+      "name": "management",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: ARM (control plane) via wslproxy lon1/lon2"
+    },
+    {
+      "name": "login",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: Entra ID tokens via wslproxy lon1/lon2"
+    },
+    {
+      "name": "graph",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: Microsoft Graph via wslproxy lon1/lon2"
+    },
+    {
+      "name": "oidc",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: AKS OIDC issuers via wslproxy lon1/lon2"
+    },
+    {
+      "name": "portal",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: CloudTyke dashboard (password) via wslproxy lon1/lon2"
+    },
+    {
+      "name": "data",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: wslproxy on-demand parent for data-plane names via wslproxy lon1/lon2"
+    },
+    {
+      "name": "*.vault",
+      "type": "CNAME",
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox data plane via lon1 (on-demand certs)"
+    },
+    {
+      "name": "*.blob.storage",
+      "type": "CNAME",
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox data plane via lon1 (on-demand certs)"
+    },
+    {
+      "name": "*.file.storage",
+      "type": "CNAME",
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox data plane via lon1 (on-demand certs)"
+    },
+    {
+      "name": "*.queue.storage",
+      "type": "CNAME",
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox data plane via lon1 (on-demand certs)"
+    },
+    {
+      "name": "*.table.storage",
+      "type": "CNAME",
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox data plane via lon1 (on-demand certs)"
+    },
+    {
+      "name": "*.azurecr",
+      "type": "CNAME",
+      "content": "lon1.pop0.uk",
+      "comment": "sandbox data plane via lon1 (on-demand certs)"
+    },
+    {
+      "name": "hello",
+      "type": "CNAME",
+      "content": "lon.pop0.uk",
+      "comment": "sandbox: hello-web via wslproxy lon1/lon2"
+    }
+  ]
+}

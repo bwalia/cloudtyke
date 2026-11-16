@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>7. The team · CloudTyke Arena</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-root=".." data-chapter="7">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <div id="chapter-head"></div>
+
+  <h2 id="team-h">Meet the team</h2>
+  <section class="split" aria-labelledby="team-h">
+    <div class="drawing"><svg id="team" class="scene" viewBox="0 0 640 400" role="group" aria-label="Kubernetes as a team. Each numbered part is a button."></svg></div>
+    <div class="card">
+      <p>Kubernetes lives <em>on the pitch</em>, inside one event's landing zone. The word comes from the Greek for "helmsman", the person who steers a ship. A manager steers a team, so the picture fits.</p>
+      <ol class="legend-list" id="team-legend"></ol>
+    </div>
+  </section>
+
+  <h2>Get the best from the team</h2>
+  <div class="tabs" role="tablist" aria-label="Games">
+    <button type="button" role="tab" id="tab-pack" aria-controls="panel-pack" aria-selected="true">Pack the squad</button>
+    <button type="button" role="tab" id="tab-seat" aria-controls="panel-seat" aria-selected="false" tabindex="-1">Seat the crowd</button>
+  </div>
+
+  <section id="panel-pack" role="tabpanel" aria-labelledby="tab-pack">
+    <div class="split">
+      <div class="card stack">
+        <p class="small">Pods are blocks. Height is CPU. The thin bar on the right of each node is memory. Pick a pod on the bench, then pick a node. Click a placed pod to send it back.</p>
+        <svg id="nodes" class="scene" viewBox="0 0 640 300" role="group" aria-label="Six nodes in three zones"></svg>
+        <div><h3>The bench</h3><div class="tray" id="bench" role="list" aria-label="Pods waiting for a node"></div></div>
+      </div>
+      <div class="stack">
+        <div class="meters">
+          <div class="meter" id="mm-cost"><b id="m-nodes">0</b><span>nodes used (cost)</span></div>
+          <div class="meter" id="mm-eff"><b id="m-eff">0%</b><span>how full (efficiency)</span></div>
+          <div class="meter" id="mm-risk"><b id="m-risk">0</b><span>pods lost if one node fails (risk)</span></div>
+        </div>
+        <div class="card stack">
+          <div class="row">
+            <button type="button" class="btn primary" id="auto-pack">Auto: Pack</button>
+            <button type="button" class="btn" id="auto-spread">Auto: Spread</button>
+            <button type="button" class="btn" id="rush"></button>
+          </div>
+          <div class="row">
+            <button type="button" class="btn danger" id="zone-fail">Zone failure</button>
+            <button type="button" class="btn ghost" id="pack-reset">Clear</button>
+          </div>
+          <div id="pack-fb" aria-live="polite"></div>
+        </div>
+        <details><summary>The football ↔ Kubernetes table</summary><div class="table-wrap"><table id="pack-table"></table></div></details>
+      </div>
+    </div>
+  </section>
+
+  <section id="panel-seat" role="tabpanel" aria-labelledby="tab-seat" hidden>
+    <div class="split">
+      <div class="card stack">
+        <p class="small">Groups of fans arrive. Seat them two ways and compare. W marks wheelchair spaces, V marks VIP seats, and the away block is Stand C.</p>
+        <svg id="seats" class="scene" viewBox="0 0 660 230" role="group" aria-label="Three stands of seats"></svg>
+        <div class="legend" id="seat-legend"></div>
+      </div>
+      <div class="stack">
+        <div class="meters">
+          <div class="meter" id="sm-orph"><b id="s-orph">0</b><span>orphan seats (fragmentation)</span></div>
+          <div class="meter" id="sm-open"><b id="s-open">0</b><span>stands opened (cost)</span></div>
+          <div class="meter" id="sm-break"><b id="s-break">0</b><span>rule breaks</span></div>
+        </div>
+        <div class="card stack">
+          <div class="row">
+            <button type="button" class="btn primary" id="seat-block">Fill block by block</button>
+            <button type="button" class="btn" id="seat-scatter">Scatter</button>
+          </div>
+          <div id="seat-fb" aria-live="polite"></div>
+        </div>
+        <details><summary>The seating ↔ Kubernetes table</summary><div class="table-wrap"><table id="seat-table"></table></div></details>
+      </div>
+    </div>
+  </section>
+
+  <section id="quiz" style="margin-top:28px"></section>
+  <div id="chapter-foot"></div>
+</main>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/ch07-team.js"></script>
+</body>
+</html>

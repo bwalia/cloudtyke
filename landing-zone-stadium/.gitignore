@@ -1,0 +1,6 @@
+# Terraform working files (the emulator keeps its own state in a Docker volume)
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/*.tfplan

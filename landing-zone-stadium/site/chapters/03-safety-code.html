@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3. The safety code · CloudTyke Arena</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body data-root=".." data-chapter="3">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <div id="chapter-head"></div>
+
+  <h2>Step 1. Put each rule on the right wall</h2>
+  <p>A rule goes on the wall of the group it is for. Everything under that wall must follow it. Drag a rule onto a wall, or pick a rule and then pick a wall.</p>
+  <section class="stack" aria-label="Sort the rules">
+    <div class="tray" id="cards" role="list" aria-label="Rules to place"></div>
+    <div class="walls" id="walls"></div>
+    <div class="fb" id="sort-fb" aria-live="polite"></div>
+  </section>
+
+  <h2>Step 2. Watch the rules flow down</h2>
+  <section class="split" aria-label="Hierarchy and inheritance">
+    <div class="drawing"><svg id="stadium" class="stadium" role="group" aria-label="The stadium"></svg></div>
+    <div class="card stack">
+      <p>This is the hierarchy from the CloudTyke dashboard. Click a row to light up that part of the stadium.</p>
+      <div id="tree"></div>
+      <button type="button" class="btn primary" id="flow">Show the safety code flowing down</button>
+      <ol class="steps-list" id="flow-out" aria-live="polite"></ol>
+    </div>
+  </section>
+
+  <h2>Step 3. Break the rules mode</h2>
+  <section class="split even" aria-label="Break the rules">
+    <div class="card stack">
+      <p>Try to do something the safety code forbids. The request goes to the cloud, and the cloud says no before anything is built.</p>
+      <div class="choice-list" id="attempts"></div>
+    </div>
+    <div class="card stack">
+      <h3>What the cloud says</h3>
+      <div id="attempt-out" aria-live="polite"><p class="muted">Pick a request on the left.</p></div>
+    </div>
+  </section>
+
+  <section id="quiz" style="margin-top:28px"></section>
+  <div id="chapter-foot"></div>
+</main>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/stadium.js"></script>
+<script src="../js/ch03-safety.js"></script>
+</body>
+</html>
