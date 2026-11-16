@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Management and security · Azure landing zones · CloudTyke Arena</title>
+<meta name="description" content="Where Log Analytics, Azure Monitor, Defender for Cloud, Sentinel, Update Manager, Backup, Key Vault, Azure Policy and Cost Management sit in Azure landing zones.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/azure.css">
+</head>
+<body data-root=".." class="alz">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <nav id="alz-nav" aria-label="Azure landing zones pages"></nav>
+  <div class="alz-head">
+    <p class="eyebrow">Azure landing zones · design areas E, F, G</p>
+    <h1>Management and security services</h1>
+    <p class="lead">Most management and security tools are set up once by the platform team and switched on everywhere by policy. Some live in the management subscription. Some are configured at Contoso. A few, like Key Vault and backup vaults, live in each landing zone.</p>
+  </div>
+
+  <section class="alz-fig" aria-labelledby="f1-h">
+    <span class="fig-n">Figure 1</span>
+    <h2 id="f1-h">Where each service lives, and what it watches</h2>
+    <p>Pick a service on the right. Scopes on the left light up: solid where it is deployed or configured, dashed where it watches or protects. Pick a scope to see everything that touches it.</p>
+    
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="Management and security services (scrolls sideways on small screens)" tabindex="0">
+          <svg id="ops" class="mw-l" viewBox="0 0 1000 550" role="group" aria-label="Management and security services. Boxes are buttons that show details."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all.</p>
+        
+      </div>
+      <aside class="alz-panel" id="ops-panel" aria-label="Details for the selected box"></aside>
+    </div>
+  </section>
+  <section class="alz-fig" aria-labelledby="f2-h">
+    <h2 id="f2-h">Three rules of thumb</h2>
+    <div class="cols2">
+      <div class="card"><h3>One place to look</h3><p>One central Log Analytics workspace for platform and security data is the usual start. Split only for a clear reason: data residency, very high volume, or separate billing.</p></div>
+      <div class="card"><h3>On by policy, not by memory</h3><p>Diagnostic settings, Defender plans, backup and update assessment are switched on by DeployIfNotExists policies. New subscriptions are covered from minute one.</p></div>
+      <div class="card"><h3>Secrets stay with the app</h3><p>Each app gets its own Key Vault per environment and region. Never share a vault between apps or between production and test.</p></div>
+      <div class="card"><h3>Budgets warn, they do not stop</h3><p>A Cost Management budget sends alerts. To stop spend, use policy (allowed SKUs) or automation on the alert.</p></div>
+    </div>
+  </section>
+  <aside class="stadium-tie" aria-label="Stadium link">
+    <span data-ic="stadium" data-size="40"></span>
+    <div>
+      <p><strong>In the stadium</strong></p>
+      <p>This is the control room and the club safe. Cameras everywhere feed one room, and every event uses the same safe. See <a href="../chapters/05-control-room.html">Chapter 5, The control room</a> and <a href="../chapters/04-safe.html">Chapter 4, The club safe</a>.</p>
+    </div>
+  </aside>
+
+  <nav id="alz-pager"></nav>
+</main>
+<footer class="site">CloudTyke Arena is a learning project. Contoso, Fabrikam and Northwind are fictional. Not affiliated with or endorsed by Microsoft. Azure, Microsoft Entra and the other product names are trademarks of Microsoft.</footer>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/alz-core.js"></script>
+<script src="../js/alz-mgmt.js"></script>
+</body>
+</html>

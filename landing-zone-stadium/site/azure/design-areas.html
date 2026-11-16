@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The 8 design areas · Azure landing zones · CloudTyke Arena</title>
+<meta name="description" content="The eight Cloud Adoption Framework design areas for Azure landing zones, with the decisions and Azure services for each.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/azure.css">
+</head>
+<body data-root=".." class="alz">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <nav id="alz-nav" aria-label="Azure landing zones pages"></nav>
+  <div class="alz-head">
+    <p class="eyebrow">Azure landing zones · design</p>
+    <h1>Eight design areas, one landing zone</h1>
+    <p class="lead">The Cloud Adoption Framework splits a landing zone into eight design areas, A to H. Each area is a set of decisions. Together they shape the platform. Make them in any order you like, but billing, identity and resource organization are the hardest to change later.</p>
+  </div>
+
+  <section class="alz-fig" aria-labelledby="f1-h">
+    <span class="fig-n">Figure 1</span>
+    <h2 id="f1-h">The design area map</h2>
+    <p>Four groups: environment, network, compliance and operations. Click an area to see what it decides and which Azure services carry it out. Related areas stay lit.</p>
+    
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="The eight design areas (scrolls sideways on small screens)" tabindex="0">
+          <svg id="areas" class="mw-l" viewBox="0 0 1000 476" role="group" aria-label="The eight design areas. Boxes are buttons that show details."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all.</p>
+        
+      </div>
+      <aside class="alz-panel" id="areas-panel" aria-label="Details for the selected box"></aside>
+    </div>
+  </section>
+  <section class="alz-fig" aria-labelledby="f2-h">
+    <h2 id="f2-h">Where the decisions end up</h2>
+    <div class="table-wrap card"><table>
+      <thead><tr><th scope="col">Area</th><th scope="col">Ends up as</th><th scope="col">See</th></tr></thead>
+      <tbody>
+        <tr><td>A. Billing and Entra tenant</td><td>Billing scopes, one tenant, who may create subscriptions</td><td><a href="vending.html">Subscription vending</a></td></tr>
+        <tr><td>B. Identity and access</td><td>Groups, custom roles, PIM, managed identities</td><td><a href="hierarchy.html">Hierarchy: identity band</a></td></tr>
+        <tr><td>C. Resource organization</td><td>The management group tree, subscription per workload, tags</td><td><a href="hierarchy.html">Hierarchy</a></td></tr>
+        <tr><td>D. Network</td><td>Hub and spoke or Virtual WAN, IP plan, private DNS</td><td><a href="network.html">Network topology</a></td></tr>
+        <tr><td>E. Security</td><td>Defender for Cloud, Sentinel, Key Vault</td><td><a href="management-security.html">Management and security</a></td></tr>
+        <tr><td>F. Management</td><td>Log Analytics, monitoring, updates, backup</td><td><a href="management-security.html">Management and security</a></td></tr>
+        <tr><td>G. Governance</td><td>Policy assignments, budgets, exemptions</td><td><a href="hierarchy.html">Hierarchy: policy</a></td></tr>
+        <tr><td>H. Platform automation and DevOps</td><td>Infrastructure as code, pipelines, vending</td><td><a href="vending.html">Subscription vending</a></td></tr>
+      </tbody></table></div>
+  </section>
+  <aside class="stadium-tie" aria-label="Stadium link">
+    <span data-ic="stadium" data-size="40"></span>
+    <div>
+      <p><strong>In the stadium</strong></p>
+      <p>The design areas are the stadium plans: the land deal and owner (billing and tenant), stewards and wristbands (identity), the layout of stands (resource organization), gates and walkways (network), security and the control room (security, management), the safety code (governance) and the build crew (automation). <a href="../chapters/01-build.html">Chapter 1</a> places them in order.</p>
+    </div>
+  </aside>
+
+  <nav id="alz-pager"></nav>
+</main>
+<footer class="site">CloudTyke Arena is a learning project. Contoso, Fabrikam and Northwind are fictional. Not affiliated with or endorsed by Microsoft. Azure, Microsoft Entra and the other product names are trademarks of Microsoft.</footer>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/alz-core.js"></script>
+<script src="../js/alz-design-areas.js"></script>
+</body>
+</html>

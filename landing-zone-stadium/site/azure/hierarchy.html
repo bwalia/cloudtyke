@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Management groups and subscriptions · Azure landing zones · CloudTyke Arena</title>
+<meta name="description" content="The Azure landing zones management group hierarchy, identity and access, and how Azure Policy flows down. Interactive.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/azure.css">
+</head>
+<body data-root=".." class="alz">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <nav id="alz-nav" aria-label="Azure landing zones pages"></nav>
+  <div class="alz-head">
+    <p class="eyebrow">Azure landing zones · the reference hierarchy</p>
+    <h1>Management groups and subscriptions</h1>
+    <p class="lead">Azure landing zones organise an estate as a tree. Management groups hold the rules. Subscriptions hold the resources. A rule set on a group reaches every subscription below it.</p>
+  </div>
+
+  <section class="alz-fig" aria-labelledby="f1-h">
+    <span class="fig-n">Figure 1</span>
+    <h2 id="f1-h">The Azure landing zones hierarchy</h2>
+    <p>Identity sits across the top: one Microsoft Entra ID tenant, Privileged Identity Management and role-based access. Below it, <strong>Contoso</strong> is the organisation's own top group. Platform groups hold shared services. Landing zones hold the apps. Two more groups handle the start and end of a subscription's life: Sandbox and Decommissioned.</p>
+    <div class="row alz-controls" id="hier-view"></div>
+    <p class="small muted" id="hier-note" aria-live="polite"></p>
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="Hierarchy diagram (scrolls sideways on small screens)" tabindex="0">
+          <svg id="hier" class="mw-xl" viewBox="0 0 1120 920" role="group" aria-label="Azure landing zones hierarchy. Each box is a button that shows its details."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all. Details appear below it.</p>
+      </div>
+      <aside class="alz-panel" id="hier-panel" aria-label="Details for the selected box"></aside>
+    </div>
+  </section>
+
+  <section class="alz-fig" aria-labelledby="f2-h">
+    <span class="fig-n">Figure 2</span>
+    <h2 id="f2-h">One request, every rule above it</h2>
+    <p>When someone builds a resource, Azure Policy collects every assignment from the subscription and from each group above it. If any of them says Deny, the request fails with <code>RequestDisallowedByPolicy</code>. Pick a request to see which rule decides.</p>
+    <div class="row alz-controls" id="eval-pick"></div>
+    <div class="alz-split">
+      <div class="alz-canvas" role="region" aria-label="Policy check diagram" tabindex="0">
+        <svg id="eval" class="mw-m alz-svg" viewBox="0 0 760 420" role="img" aria-label="The groups above the target subscription and the result of the policy check"></svg>
+      </div>
+      <div class="alz-panel" style="position:static">
+        <div id="eval-out" aria-live="polite"></div>
+        <p><button type="button" class="btn" id="eval-replay">Replay</button></p>
+        <p class="small muted">Policy effects in short: <span class="pill deny">Deny</span> blocks the request. <span class="pill audit">Audit</span> lets it through and marks it non-compliant. <span class="pill dine">DeployIfNotExists</span> and <span class="pill dine">Modify</span> add or fix settings, using a managed identity.</p>
+        <div class="ct"><h4>Practise in CloudTyke</h4><p>Policy assignments at management group scope are enforced on every write. Run <code>bash landing-zone-stadium/scripts/up.sh</code>, then try to create a public IP in <code>sub-events</code>: the initiative in <code>terraform/safety-code.tf</code> denies it. Built-in definitions are not seeded, and DeployIfNotExists never deploys.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="stadium-tie" aria-label="Stadium link">
+    <span data-ic="stadium" data-size="40"></span>
+    <div>
+      <p><strong>In the stadium</strong></p>
+      <p>The tenant root group is the land. Platform is the stadium shell, built once. Landing zones is the pitch, where events happen. Sandbox is the training ground. The policy that flows down is the stadium's safety code: <a href="../chapters/03-safety-code.html">Chapter 3, The safety code</a>.</p>
+    </div>
+  </aside>
+
+  <nav id="alz-pager"></nav>
+</main>
+<footer class="site">CloudTyke Arena is a learning project. Contoso, Fabrikam and Northwind are fictional. Not affiliated with or endorsed by Microsoft. Azure, Microsoft Entra and the other product names are trademarks of Microsoft.</footer>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/alz-core.js"></script>
+<script src="../js/alz-hierarchy.js"></script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network topology · Azure landing zones · CloudTyke Arena</title>
+<meta name="description" content="Hub and spoke vs Azure Virtual WAN in Azure landing zones, with packet paths for Corp and Online apps and a decision guide.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/azure.css">
+</head>
+<body data-root=".." class="alz">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <nav id="alz-nav" aria-label="Azure landing zones pages"></nav>
+  <div class="alz-head">
+    <p class="eyebrow">Azure landing zones · design area D</p>
+    <h1>Network topology and connectivity</h1>
+    <p class="lead">Every landing zone connects to one place: the hub in the connectivity subscription. You can build the hub yourself (hub and spoke) or let Azure Virtual WAN run it. Either way, traffic between spokes, on-premises and the internet is inspected in one place.</p>
+  </div>
+
+  <section class="alz-fig" aria-labelledby="f1-h">
+    <span class="fig-n">Figure 1</span>
+    <h2 id="f1-h">Hub and spoke, or Virtual WAN</h2>
+    <p>Switch the topology to compare them. Then pick a path to watch a packet travel. Click any box for what it does.</p>
+    <div class="row alz-controls" id="net-mode"></div><p class="small" id="net-mode-note" aria-live="polite"></p><div class="btn-row" id="path-btns" role="group" aria-label="Packet paths"></div>
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="Network topology (scrolls sideways on small screens)" tabindex="0">
+          <svg id="net" class="mw-xl" viewBox="0 0 1100 600" role="group" aria-label="Network topology. Boxes are buttons that show details."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all.</p>
+        <div class="card" style="margin-top:12px" id="path-out" aria-live="polite"></div>
+      </div>
+      <aside class="alz-panel" id="net-panel" aria-label="Details for the selected box"></aside>
+    </div>
+  </section>
+  <section class="alz-fig" aria-labelledby="cmp-h">
+    <h2 id="cmp-h">Side by side</h2>
+    <div class="table-wrap card"><table>
+      <thead><tr><th scope="col"></th><th scope="col">Hub and spoke</th><th scope="col">Azure Virtual WAN</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Who runs the hub</th><td>You: a VNet you build</td><td>Microsoft: a managed hub</td></tr>
+        <tr><th scope="row">Routing</th><td>Route tables (UDRs) per spoke subnet</td><td>Managed hub router, routing intent</td></tr>
+        <tr><th scope="row">Spoke links</th><td>VNet peering (or Virtual Network Manager)</td><td>VNet connections</td></tr>
+        <tr><th scope="row">Shared services in the hub</th><td>Yes: Bastion, DNS resolver, appliances</td><td>No: put them in a shared services spoke</td></tr>
+        <tr><th scope="row">Many regions and branches</th><td>Possible, more to build</td><td>Built for it: hub-to-hub transit, SD-WAN partners</td></tr>
+        <tr><th scope="row">Firewall</th><td>Azure Firewall or a third-party appliance in the hub</td><td>Azure Firewall in a secured hub (Firewall Manager), or supported partner appliances</td></tr>
+      </tbody></table></div>
+  </section>
+  <section class="alz-fig" aria-labelledby="f2-h">
+    <span class="fig-n">Figure 2</span>
+    <h2 id="f2-h">Which one fits you?</h2>
+    <p>Answer five questions. The needle shows which way your answers lean. It is a guide for a conversation, not a rule.</p>
+    <div class="alz-split wide-panel">
+      <div class="alz-canvas" role="region" aria-label="Decision gauge">
+        <svg id="guide" class="alz-svg" viewBox="0 0 460 250" role="img" aria-label="A gauge from hub and spoke to Virtual WAN"></svg>
+        <div id="guide-out" aria-live="polite"></div>
+      </div>
+      <div class="alz-panel" style="position:static" id="guide-q"></div>
+    </div>
+    <div class="ct card" style="margin-top:14px"><h3>Practise in CloudTyke</h3><p>Hub and spoke works: VNets, subnets, two-way peering (overlapping ranges are rejected), NSGs, route tables with a <code>VirtualAppliance</code> next hop, private DNS zones and links. Azure Virtual Network Manager can build hub-and-spoke or mesh configurations. There are no Azure Firewall, Bastion, VPN, ExpressRoute or Virtual WAN resources, so packets do not really flow. Start with <code>azure-emulator/examples/terraform/landing-zone/</code>.</p></div>
+  </section>
+  <aside class="stadium-tie" aria-label="Stadium link">
+    <span data-ic="stadium" data-size="40"></span>
+    <div>
+      <p><strong>In the stadium</strong></p>
+      <p>The hub is the stadium gates and bag check: one way in, everyone checked. Spokes are the stands, joined to the gates by walkways (peering). Bastion is the staff door. Walk it in <a href="../chapters/02-gates.html">Chapter 2, Gates, walkways and doors</a>.</p>
+    </div>
+  </aside>
+
+  <nav id="alz-pager"></nav>
+</main>
+<footer class="site">CloudTyke Arena is a learning project. Contoso, Fabrikam and Northwind are fictional. Not affiliated with or endorsed by Microsoft. Azure, Microsoft Entra and the other product names are trademarks of Microsoft.</footer>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/alz-core.js"></script>
+<script src="../js/alz-network.js"></script>
+</body>
+</html>

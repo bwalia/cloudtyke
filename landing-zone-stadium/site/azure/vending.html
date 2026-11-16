@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subscription vending · Azure landing zones · CloudTyke Arena</title>
+<meta name="description" content="How subscription vending turns a request into a ready Azure landing zone, step by step.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/azure.css">
+</head>
+<body data-root=".." class="alz">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <nav id="alz-nav" aria-label="Azure landing zones pages"></nav>
+  <div class="alz-head">
+    <p class="eyebrow">Azure landing zones · design areas A, C, H</p>
+    <h1>Subscription vending</h1>
+    <p class="lead">Subscription vending is a repeatable process, run from code, that turns a request into a ready landing zone. Every landing zone comes out the same: right management group, network, access, policy and budget. Bicep and Terraform modules for this exist in Azure Verified Modules.</p>
+  </div>
+
+  <section class="alz-fig" aria-labelledby="f1-h">
+    <span class="fig-n">Figure 1</span>
+    <h2 id="f1-h">From request to ready, in eight steps</h2>
+    <p>Step through it. The request fields used at each step light up, and the new subscription grows on the right.</p>
+    <div id="vend-steps" class="card" style="margin-top:10px"></div>
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="Subscription vending (scrolls sideways on small screens)" tabindex="0">
+          <svg id="vend" class="mw-xl" viewBox="0 0 1100 450" role="group" aria-label="Subscription vending. Boxes are buttons that show details."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all.</p>
+        
+      </div>
+      <aside class="alz-panel" id="vend-panel" aria-label="Details for the selected box"></aside>
+    </div>
+  </section>
+  <aside class="stadium-tie" aria-label="Stadium link">
+    <span data-ic="stadium" data-size="40"></span>
+    <div>
+      <p><strong>In the stadium</strong></p>
+      <p>Vending is booking an event at the stadium: fill in the form, and the stand, the seats and the wristbands are ready when you arrive. See <a href="../chapters/09-your-event.html">Chapter 9, Your own event</a>.</p>
+    </div>
+  </aside>
+
+  <nav id="alz-pager"></nav>
+</main>
+<footer class="site">CloudTyke Arena is a learning project. Contoso, Fabrikam and Northwind are fictional. Not affiliated with or endorsed by Microsoft. Azure, Microsoft Entra and the other product names are trademarks of Microsoft.</footer>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/alz-core.js"></script>
+<script src="../js/alz-vending.js"></script>
+</body>
+</html>

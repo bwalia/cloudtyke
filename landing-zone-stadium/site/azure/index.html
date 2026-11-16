@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Azure landing zones · CloudTyke Arena</title>
+<meta name="description" content="Azure landing zones explained with interactive diagrams: the management group hierarchy, design areas, networking, management, services, subscription vending and five real scenarios.">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/azure.css">
+</head>
+<body data-root=".." class="alz">
+<a class="skip" href="#main">Skip to content</a>
+<header id="topbar"></header>
+<main id="main">
+  <nav id="alz-nav" aria-label="Azure landing zones pages"></nav>
+  <div class="alz-head">
+    <p class="eyebrow">CloudTyke Arena · a new section</p>
+    <h1>Azure landing zones, drawn out</h1>
+    <p class="lead">An Azure landing zone is a ready-made environment for your apps. The Microsoft Cloud Adoption Framework (CAF) describes a reference design for it. The platform team builds identity, networking, security and governance once. Each app team then gets a subscription that already follows the rules.</p>
+    <p>This section explains that design with diagrams you can click. Start with the hierarchy, then read the topic pages, then walk through five scenarios: build new, migrate, upgrade an existing estate, modernise, and run a subscription's lifecycle.</p>
+  </div>
+
+  <section class="alz-fig" aria-labelledby="f0-h">
+    <span class="fig-n">Figure 0</span>
+    <h2 id="f0-h">A landing zone at a glance</h2>
+    <p>Two kinds of landing zone. The <strong>platform landing zone</strong> holds the shared services: identity, management and the connectivity hub. <strong>Application landing zones</strong> hold the apps. Each one is a subscription, peered to the hub and covered by the same rules. Click any box.</p>
+    <div class="alz-split">
+      <div>
+        <div class="alz-canvas" role="region" aria-label="Overview diagram (scrolls sideways on small screens)" tabindex="0">
+          <svg id="glance" class="mw-l" viewBox="0 0 1000 545" role="group" aria-label="An Azure landing zone at a glance. Each box is a button."></svg>
+        </div>
+        <p class="scroll-hint">Scroll the drawing sideways to see it all.</p>
+      </div>
+      <aside class="alz-panel" id="glance-panel" aria-label="Details for the selected box"></aside>
+    </div>
+  </section>
+
+  <section class="alz-fig" aria-labelledby="pages-h">
+    <h2 id="pages-h">Topics and scenarios</h2>
+    <ul class="alz-cards" id="alz-cards"></ul>
+  </section>
+
+  <section class="alz-fig" aria-labelledby="ct-h">
+    <h2 id="ct-h">What you can practise on CloudTyke</h2>
+    <div class="cols2">
+      <div class="card">
+        <h3>Works in the emulator</h3>
+        <ul>
+          <li>A read-only management group tree from the seed: <code>ct-platform</code>, <code>ct-landingzones</code>, <code>ct-sandbox</code>, with <code>sub-connectivity</code>, <code>sub-management</code> and <code>sub-sandbox</code></li>
+          <li>Azure Policy definitions, initiatives and assignments at management group scope, enforced on every write</li>
+          <li>Azure RBAC with inheritance, custom roles, Entra users, groups, managed identities and GitHub OIDC</li>
+          <li>Hub and spoke: VNets, subnets, peering, NSGs, route tables, private DNS zones, public IPs, and Virtual Network Manager hub-and-spoke</li>
+          <li>Log Analytics, Key Vault (secrets), Storage, Container Registry, AKS, PostgreSQL flexible server and Cosmos DB (control plane)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Not in the emulator</h3>
+        <ul>
+          <li>Creating or moving management groups, and creating subscriptions (no subscription vending API)</li>
+          <li>Azure Firewall, Bastion, VPN and ExpressRoute gateways, Virtual WAN (no resources, no data path)</li>
+          <li>Microsoft Defender for Cloud, Microsoft Sentinel, Azure Update Manager, Backup and Site Recovery, Cost Management</li>
+          <li>Privileged Identity Management, MFA, Conditional Access, access reviews</li>
+          <li>App Service, Functions, Container Apps, Azure SQL, API Management, Service Bus, Azure OpenAI and others outside <code>azure-emulator/docs/coverage.md</code></li>
+        </ul>
+        <p class="small muted">Sources: <code>azure-emulator/docs/coverage.md</code> and <code>azure-emulator/docs/known-gaps.md</code>.</p>
+      </div>
+    </div>
+    <p class="small">Build it yourself: <code>azure-emulator/examples/terraform/landing-zone/</code> creates a CAF-style platform with spokes. <code>landing-zone-stadium/terraform</code> builds the Arena's version.</p>
+  </section>
+
+  <aside class="stadium-tie" aria-label="Stadium link">
+    <span data-ic="stadium" data-size="40"></span>
+    <div>
+      <p><strong>In the stadium</strong></p>
+      <p>The platform landing zone is the stadium you build once: gates, control room, safety code. Each application landing zone is an event space on the pitch. Vending is booking an event. See it as a picture in <a href="../chapters/01-build.html">Chapter 1, Build the stadium</a>.</p>
+    </div>
+  </aside>
+
+  <nav id="alz-pager"></nav>
+</main>
+<footer class="site">CloudTyke Arena is a learning project. Contoso, Fabrikam and Northwind are fictional. Not affiliated with or endorsed by Microsoft. Azure, Microsoft Entra and the other product names are trademarks of Microsoft.</footer>
+<script src="../content/content.js"></script>
+<script src="../content/venues.js"></script>
+<script src="../js/core.js"></script>
+<script src="../js/alz-core.js"></script>
+<script src="../js/alz-index.js"></script>
+</body>
+</html>

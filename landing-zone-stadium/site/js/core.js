@@ -98,6 +98,7 @@
     el.innerHTML =
       '<a class="brand" href="' + root + '/index.html" aria-label="CloudTyke Arena home">' + LOGO + "<span>" + C.ui.brand + "</span></a>" +
       '<div class="controls">' +
+      '<a class="navlink" href="' + root + '/azure/index.html"' + (document.body.classList.contains("alz") || /\/azure\//.test(location.pathname) ? ' aria-current="page"' : "") + ">Azure landing zones</a>" +
       '<div class="seg" role="radiogroup" aria-label="Cloud">' + cbtn + "</div>" +
       '<label class="venue-pick"><span class="sr-only">Venue</span><select id="venue-select" aria-label="Venue">' + vopts + "</select></label>" +
       '<button type="button" class="chip" id="labels-toggle" aria-pressed="false">' + C.ui.showLabels + "</button>" +

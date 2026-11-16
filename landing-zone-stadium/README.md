@@ -59,7 +59,7 @@ CloudTyke. The AWS and GCP names are a teaching map only. The runnable code is A
 
 ## Open the site
 
-The site is plain HTML, CSS and JavaScript. There is no build step.
+The site is plain HTML, CSS and JavaScript. There is no build step. The **Azure landing zones** section (`site/azure/index.html`) explains the Cloud Adoption Framework reference with interactive diagrams: the management group hierarchy, design areas, networking, management, services, vending and five scenarios.
 
 - **Double-click** `site/index.html`. It works offline, straight from disk.
 - Or **serve the folder**, for example `python3 -m http.server -d landing-zone-stadium 8080`, then open
