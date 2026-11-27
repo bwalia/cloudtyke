@@ -58,38 +58,38 @@
     {
       "name": "management",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: ARM (control plane) via wslproxy lon1/lon2"
+      "content": "edge.pop0.uk",
+      "comment": "sandbox: ARM (control plane) via edge.pop0.uk (lon1<->lon2 failover)"
     },
     {
       "name": "login",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: Entra ID tokens via wslproxy lon1/lon2"
+      "content": "edge.pop0.uk",
+      "comment": "sandbox: Entra ID tokens via edge.pop0.uk (lon1<->lon2 failover)"
     },
     {
       "name": "graph",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: Microsoft Graph via wslproxy lon1/lon2"
+      "content": "edge.pop0.uk",
+      "comment": "sandbox: Microsoft Graph via edge.pop0.uk (lon1<->lon2 failover)"
     },
     {
       "name": "oidc",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: AKS OIDC issuers via wslproxy lon1/lon2"
+      "content": "edge.pop0.uk",
+      "comment": "sandbox: AKS OIDC issuers via edge.pop0.uk (lon1<->lon2 failover)"
     },
     {
       "name": "portal",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: CloudTyke dashboard (password) via wslproxy lon1/lon2"
+      "content": "edge.pop0.uk",
+      "comment": "sandbox: CloudTyke dashboard (password) via edge.pop0.uk (lon1<->lon2 failover)"
     },
     {
       "name": "data",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: wslproxy on-demand parent for data-plane names via wslproxy lon1/lon2"
+      "content": "edge.pop0.uk",
+      "comment": "sandbox: wslproxy on-demand parent for data-plane names via edge.pop0.uk (lon1<->lon2 failover)"
     },
     {
       "name": "*.vault",
@@ -130,8 +130,8 @@
     {
       "name": "hello",
       "type": "CNAME",
-      "content": "lon.pop0.uk",
-      "comment": "sandbox: hello-web via wslproxy lon1/lon2"
+      "content": "edge.pop0.uk",
+      "comment": "sandbox: hello-web via edge.pop0.uk (lon1<->lon2 failover)"
     }
   ]
 }
